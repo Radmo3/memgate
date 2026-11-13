@@ -1,0 +1,756 @@
+{
+  "settings": {
+    "seeds": "20",
+    "sessions": "60",
+    "ttl": "20",
+    "attacks": "30",
+    "fatigue": "0.1",
+    "out": "results"
+  },
+  "under_attack": [
+    {
+      "policy": "none",
+      "runs": 20,
+      "write_asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "mean_sessions_alive": {
+        "mean": 19.998333333333335,
+        "sd": 1.7088512265905076
+      },
+      "alive_at_end": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "residual_after_retraction": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.7904,
+        "sd": 0.03099473639524178
+      },
+      "ok_prompted": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "missing": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "wrong": {
+        "mean": 0.2096,
+        "sd": 0.030994736395241796
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr_by_kind": {
+        "extra_action": 1.0,
+        "fill_gap": 1.0,
+        "override": 1.0
+      },
+      "audit_ok": true
+    },
+    {
+      "policy": "filter",
+      "runs": 20,
+      "write_asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "mean_sessions_alive": {
+        "mean": 19.998333333333335,
+        "sd": 1.7088512265905076
+      },
+      "alive_at_end": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "residual_after_retraction": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.7904,
+        "sd": 0.03099473639524178
+      },
+      "ok_prompted": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "missing": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "wrong": {
+        "mean": 0.2096,
+        "sd": 0.030994736395241796
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr_by_kind": {
+        "extra_action": 1.0,
+        "fill_gap": 1.0,
+        "override": 1.0
+      },
+      "audit_ok": true
+    },
+    {
+      "policy": "ttl",
+      "runs": 20,
+      "write_asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "mean_sessions_alive": {
+        "mean": 19.998333333333335,
+        "sd": 1.7088512265905076
+      },
+      "alive_at_end": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "residual_after_retraction": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.7904,
+        "sd": 0.03099473639524178
+      },
+      "ok_prompted": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "missing": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "wrong": {
+        "mean": 0.2096,
+        "sd": 0.030994736395241796
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr_by_kind": {
+        "extra_action": 1.0,
+        "fill_gap": 1.0,
+        "override": 1.0
+      },
+      "audit_ok": true
+    },
+    {
+      "policy": "taint",
+      "runs": 20,
+      "write_asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.8316666666666667,
+        "sd": 0.060673606697703435
+      },
+      "mean_sessions_alive": {
+        "mean": 14.64,
+        "sd": 1.102554185060377
+      },
+      "alive_at_end": {
+        "mean": 0.45666666666666667,
+        "sd": 0.10434983894999018
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.6424000000000001,
+        "sd": 0.03876840819126071
+      },
+      "ok_prompted": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "missing": {
+        "mean": 0.21200000000000002,
+        "sd": 0.030435436410107288
+      },
+      "wrong": {
+        "mean": 0.1456,
+        "sd": 0.024976620647064494
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr_by_kind": {
+        "extra_action": 0.8950000000000001,
+        "fill_gap": 0.74,
+        "override": 0.86
+      },
+      "audit_ok": true
+    },
+    {
+      "policy": "full",
+      "runs": 20,
+      "write_asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.023333333333333334,
+        "sd": 0.02671049030620106
+      },
+      "mean_sessions_alive": {
+        "mean": 14.668333333333333,
+        "sd": 1.1156764397120946
+      },
+      "alive_at_end": {
+        "mean": 0.45999999999999996,
+        "sd": 0.10574160273850403
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.8512000000000001,
+        "sd": 0.01113363798301536
+      },
+      "ok_prompted": {
+        "mean": 0.0808,
+        "sd": 0.010018929452212997
+      },
+      "missing": {
+        "mean": 0.068,
+        "sd": 0.015245361675984564
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 12.962962962962962,
+        "sd": 1.451947325499888
+      },
+      "asr_by_kind": {
+        "extra_action": 0.0,
+        "fill_gap": 0.07,
+        "override": 0.0
+      },
+      "audit_ok": true
+    }
+  ],
+  "clean": [
+    {
+      "policy": "none",
+      "runs": 20,
+      "write_asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "mean_sessions_alive": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "alive_at_end": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "ok_prompted": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "missing": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr_by_kind": {},
+      "audit_ok": true
+    },
+    {
+      "policy": "filter",
+      "runs": 20,
+      "write_asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "mean_sessions_alive": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "alive_at_end": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "ok_prompted": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "missing": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr_by_kind": {},
+      "audit_ok": true
+    },
+    {
+      "policy": "ttl",
+      "runs": 20,
+      "write_asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "mean_sessions_alive": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "alive_at_end": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "ok_prompted": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "missing": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr_by_kind": {},
+      "audit_ok": true
+    },
+    {
+      "policy": "taint",
+      "runs": 20,
+      "write_asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "mean_sessions_alive": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "alive_at_end": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.8585714285714285,
+        "sd": 0.023384680855701192
+      },
+      "ok_prompted": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "missing": {
+        "mean": 0.14142857142857143,
+        "sd": 0.0233846808557012
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr_by_kind": {},
+      "audit_ok": true
+    },
+    {
+      "policy": "full",
+      "runs": 20,
+      "write_asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "mean_sessions_alive": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "alive_at_end": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.822857142857143,
+        "sd": 0.013254330932161143
+      },
+      "ok_prompted": {
+        "mean": 0.09619047619047619,
+        "sd": 0.011927296966920235
+      },
+      "missing": {
+        "mean": 0.08095238095238096,
+        "sd": 0.01814924009045782
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 9.619047619047619,
+        "sd": 1.1927296966920236
+      },
+      "asr_by_kind": {},
+      "audit_ok": true
+    }
+  ],
+  "fatigue": [
+    {
+      "fatigue": 0.0,
+      "policy": "full",
+      "runs": 20,
+      "write_asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "mean_sessions_alive": {
+        "mean": 14.64,
+        "sd": 1.102554185060377
+      },
+      "alive_at_end": {
+        "mean": 0.45666666666666667,
+        "sd": 0.10434983894999018
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.8512000000000001,
+        "sd": 0.01113363798301536
+      },
+      "ok_prompted": {
+        "mean": 0.0808,
+        "sd": 0.010018929452212997
+      },
+      "missing": {
+        "mean": 0.068,
+        "sd": 0.015245361675984564
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 12.962962962962962,
+        "sd": 1.451947325499888
+      },
+      "asr_by_kind": {
+        "extra_action": 0.0,
+        "fill_gap": 0.0,
+        "override": 0.0
+      },
+      "audit_ok": true
+    },
+    {
+      "fatigue": 0.1,
+      "policy": "full",
+      "runs": 20,
+      "write_asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.023333333333333334,
+        "sd": 0.02671049030620106
+      },
+      "mean_sessions_alive": {
+        "mean": 14.668333333333333,
+        "sd": 1.1156764397120946
+      },
+      "alive_at_end": {
+        "mean": 0.45999999999999996,
+        "sd": 0.10574160273850403
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.8512000000000001,
+        "sd": 0.01113363798301536
+      },
+      "ok_prompted": {
+        "mean": 0.0808,
+        "sd": 0.010018929452212997
+      },
+      "missing": {
+        "mean": 0.068,
+        "sd": 0.015245361675984564
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 12.962962962962962,
+        "sd": 1.451947325499888
+      },
+      "asr_by_kind": {
+        "extra_action": 0.0,
+        "fill_gap": 0.07,
+        "override": 0.0
+      },
+      "audit_ok": true
+    },
+    {
+      "fatigue": 0.3,
+      "policy": "full",
+      "runs": 20,
+      "write_asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.08,
+        "sd": 0.04639015826256396
+      },
+      "mean_sessions_alive": {
+        "mean": 14.91,
+        "sd": 1.1968330529882376
+      },
+      "alive_at_end": {
+        "mean": 0.48,
+        "sd": 0.11102920958070879
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.8512000000000001,
+        "sd": 0.01113363798301536
+      },
+      "ok_prompted": {
+        "mean": 0.0808,
+        "sd": 0.010018929452212997
+      },
+      "missing": {
+        "mean": 0.068,
+        "sd": 0.015245361675984564
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 12.962962962962962,
+        "sd": 1.451947325499888
+      },
+      "asr_by_kind": {
+        "extra_action": 0.0,
+        "fill_gap": 0.24,
+        "override": 0.0
+      },
+      "audit_ok": true
+    },
+    {
+      "fatigue": 0.5,
+      "policy": "full",
+      "runs": 20,
+      "write_asr": {
+        "mean": 1.0,
+        "sd": 0.0
+      },
+      "asr": {
+        "mean": 0.125,
+        "sd": 0.050581414888907
+      },
+      "mean_sessions_alive": {
+        "mean": 15.11,
+        "sd": 1.2261812540714594
+      },
+      "alive_at_end": {
+        "mean": 0.495,
+        "sd": 0.10444786606315228
+      },
+      "residual_after_retraction": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "ok_silent": {
+        "mean": 0.8512000000000001,
+        "sd": 0.01113363798301536
+      },
+      "ok_prompted": {
+        "mean": 0.0808,
+        "sd": 0.010018929452212997
+      },
+      "missing": {
+        "mean": 0.068,
+        "sd": 0.015245361675984564
+      },
+      "wrong": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "declined": {
+        "mean": 0.0,
+        "sd": 0.0
+      },
+      "prompts_per_100_tasks": {
+        "mean": 12.962962962962962,
+        "sd": 1.451947325499888
+      },
+      "asr_by_kind": {
+        "extra_action": 0.0,
+        "fill_gap": 0.375,
+        "override": 0.0
+      },
+      "audit_ok": true
+    }
+  ]
+}
