@@ -12,7 +12,7 @@ license = { text = "MIT" }
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "ruff>=0.6", "mypy>=1.10"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -20,3 +20,22 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+memgate = ["py.typed"]
+memgate_eval = ["py.typed"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "src"
+packages = ["memgate", "memgate_eval"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true

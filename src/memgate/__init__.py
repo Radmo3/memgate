@@ -6,6 +6,7 @@ from .policy import (
     gate_argument,
     gate_initiated_action,
     presets,
+    resolve_value,
     select_value,
 )
 from .store import AuditLog, MemoryStore, WriteResult
@@ -23,6 +24,7 @@ __all__ = [
     "gate_argument",
     "gate_initiated_action",
     "presets",
+    "resolve_value",
     "select_value",
 ]
 __version__ = "0.1.0"

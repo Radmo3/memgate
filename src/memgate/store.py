@@ -11,8 +11,8 @@ import hmac
 import json
 import os
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Optional, Sequence
 
 from .entry import MemoryEntry, Origin, Status, Trust
 from .policy import Policy
@@ -25,7 +25,7 @@ FILTER_RE = re.compile(
 
 @dataclass(frozen=True)
 class WriteResult:
-    entry: Optional[MemoryEntry]
+    entry: MemoryEntry | None
     reason: str = "stored"
 
     @property
@@ -64,7 +64,7 @@ class AuditLog:
 
 
 class MemoryStore:
-    def __init__(self, policy: Policy, secret: Optional[bytes] = None) -> None:
+    def __init__(self, policy: Policy, secret: bytes | None = None) -> None:
         self.policy = policy
         self._secret = secret if secret is not None else os.urandom(32)
         self._entries: dict[str, MemoryEntry] = {}
@@ -104,11 +104,11 @@ class MemoryStore:
         self,
         *,
         key: str,
-        value: Optional[str],
+        value: str | None,
         text: str,
         origin: Origin,
         now: int,
-        source_id: Optional[str] = None,
+        source_id: str | None = None,
         context: Iterable[tuple[str, bool]] = (),
         parents: Sequence[str] = (),
         extra_actions: Sequence[str] = (),
@@ -163,7 +163,7 @@ class MemoryStore:
                     sources.add(sid)
         return (Trust.UNTRUSTED if untrusted else Trust.TRUSTED), frozenset(sources)
 
-    def _expiry(self, origin: Origin, trust: Trust, now: int) -> Optional[int]:
+    def _expiry(self, origin: Origin, trust: Trust, now: int) -> int | None:
         ttl = self.policy.untrusted_ttl
         if ttl is None:
             return None

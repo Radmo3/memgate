@@ -1,4 +1,12 @@
-"""Command line entry point: python -m memgate_eval.run --seeds 20 --out results"""
+"""Command line entry point.
+
+Simulation with the worst-case agent:
+    python -m memgate_eval.run --seeds 20 --out results
+
+With a real model behind any OpenAI-compatible endpoint (set MEMGATE_API_BASE,
+MEMGATE_MODEL and, if needed, MEMGATE_API_KEY in your environment first):
+    python -m memgate_eval.run --agent llm --seeds 3 --sessions 30 --attacks 9 --out results-llm
+"""
 from __future__ import annotations
 
 import argparse
@@ -8,6 +16,7 @@ from pathlib import Path
 
 from memgate import presets
 
+from .agents import Agent, LLMAgent, openai_compatible
 from .scenario import generate
 from .sim import run
 
@@ -34,13 +43,17 @@ def aggregate(runs: list[dict]) -> dict:
     return out
 
 
-def sweep(seeds: int, n_sessions: int, ttl: int, fatigue: float, n_attacks: int) -> list[dict]:
+def sweep(
+    seeds: int, n_sessions: int, ttl: int, fatigue: float, n_attacks: int,
+    agent: Agent | None = None,
+) -> list[dict]:
     rows = []
-    for name, policy in presets(ttl).items():
+    for policy in presets(ttl).values():
         runs = [
             run(
                 generate(seed, n_sessions=n_sessions, n_attacks=n_attacks),
                 policy,
+                agent=agent,
                 fatigue=fatigue,
                 seed=seed,
             )
@@ -94,23 +107,30 @@ def main() -> None:
     ap.add_argument("--ttl", type=int, default=20)
     ap.add_argument("--attacks", type=int, default=30)
     ap.add_argument("--fatigue", type=float, default=0.1)
+    ap.add_argument("--agent", choices=["compliant", "llm"], default="compliant")
     ap.add_argument("--out", type=Path, default=Path("results"))
     args = ap.parse_args()
 
-    under_attack = sweep(args.seeds, args.sessions, args.ttl, args.fatigue, args.attacks)
-    clean = sweep(args.seeds, args.sessions, args.ttl, args.fatigue, 0)
+    agent: Agent | None = LLMAgent(openai_compatible()) if args.agent == "llm" else None
+    under_attack = sweep(args.seeds, args.sessions, args.ttl, args.fatigue, args.attacks, agent)
+    clean = sweep(args.seeds, args.sessions, args.ttl, args.fatigue, 0, agent)
     fatigue_rows = []
     for f in (0.0, 0.1, 0.3, 0.5):
-        full = [r for r in sweep(args.seeds, args.sessions, args.ttl, f, args.attacks)
+        full = [r for r in sweep(args.seeds, args.sessions, args.ttl, f, args.attacks, agent)
                 if r["policy"] == "full"][0]
         fatigue_rows.append((f, full))
 
     report = [
         "# Simulation results",
         "",
-        "These numbers come from the structural simulator with a worst-case "
-        "compliant agent. No language model was involved. They show what each "
-        "policy permits, not how a real model behaves.",
+        (
+            "These numbers come from a real model, named by MEMGATE_MODEL at run time, "
+            "acting as the agent inside the simulated workload."
+            if args.agent == "llm"
+            else "These numbers come from the structural simulator with a worst-case "
+            "compliant agent. No language model was involved. They show what each "
+            "policy permits, not how a real model behaves."
+        ),
         "",
         f"Settings: {args.seeds} seeds, {args.sessions} sessions, "
         f"{args.attacks} attacks per run, untrusted TTL {args.ttl} sessions, "

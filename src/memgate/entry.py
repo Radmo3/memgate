@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import Enum, IntEnum
-from typing import Optional
 
 
 class Origin(str, Enum):
@@ -37,14 +36,14 @@ class Status(str, Enum):
 class MemoryEntry:
     id: str
     key: str                      # what the memory is about (retrieval handle)
-    value: Optional[str]          # the remembered value; None for pure directives
+    value: str | None          # the remembered value; None for pure directives
     text: str                     # natural-language form, as the model would see it
     origin: Origin
     trust: Trust
     sources: frozenset            # ids of every external source that influenced it
     parents: tuple                # ids of entries it was derived from
     created: int
-    expires: Optional[int]
+    expires: int | None
     extra_actions: tuple = ()     # actions this memory asks the agent to take
     status: Status = Status.ACTIVE
     sig: str = ""

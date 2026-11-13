@@ -5,9 +5,9 @@ an ablation changes one mechanism at a time.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Sequence
 
 from .entry import MemoryEntry, Trust
 
@@ -20,7 +20,7 @@ class Policy:
     track_taint: bool = False             # runtime-computed provenance, propagated
     sign_entries: bool = False            # HMAC over content and provenance
     # Lifecycle
-    untrusted_ttl: Optional[int] = None   # sessions an untrusted entry may live
+    untrusted_ttl: int | None = None   # sessions an untrusted entry may live
     ttl_survives_consolidation: bool = False
     partition_consolidation: bool = False  # never merge across trust levels
     # Action time
@@ -61,7 +61,7 @@ class Decision(str, Enum):
     DENY = "deny"
 
 
-def select_value(policy: Policy, entries: Sequence[MemoryEntry]) -> Optional[MemoryEntry]:
+def select_value(policy: Policy, entries: Sequence[MemoryEntry]) -> MemoryEntry | None:
     """Pick which remembered value an action will use.
 
     Without the conflict rule the most recent value wins, which is how
@@ -79,6 +79,21 @@ def select_value(policy: Policy, entries: Sequence[MemoryEntry]) -> Optional[Mem
     return valued[-1]
 
 
+def resolve_value(
+    policy: Policy, entries: Sequence[MemoryEntry], proposed: MemoryEntry | None
+) -> MemoryEntry | None:
+    """Decide which entry's value an action uses, given what the agent proposed.
+
+    When the conflict rule is on and the user has stated a value, the runtime
+    uses that value regardless of what the agent asked for.
+    """
+    if policy.trusted_wins_conflicts:
+        trusted = [e for e in entries if e.value is not None and e.trust is Trust.TRUSTED]
+        if trusted:
+            return trusted[-1]
+    return proposed
+
+
 def gate_argument(policy: Policy, entry: MemoryEntry, consequential: bool) -> Decision:
     """May a user-requested action use this entry's value as an argument?"""
     if policy.confirm_untrusted_args and consequential and entry.trust is Trust.UNTRUSTED:
@@ -86,8 +101,21 @@ def gate_argument(policy: Policy, entry: MemoryEntry, consequential: bool) -> De
     return Decision.ALLOW
 
 
-def gate_initiated_action(policy: Policy, entry: MemoryEntry) -> Decision:
-    """May a memory start an action the user did not ask for in this session?"""
-    if policy.deny_untrusted_initiated_actions and entry.trust is Trust.UNTRUSTED:
+def gate_initiated_action(
+    policy: Policy,
+    entry: MemoryEntry | None,
+    context: Sequence[MemoryEntry] = (),
+) -> Decision:
+    """May the agent start an action the user did not ask for in this session?
+
+    ``entry`` is the memory the agent says prompted the action. If the agent
+    gives none, the action is judged by everything it could see: one untrusted
+    entry in ``context`` is enough to deny it.
+    """
+    if not policy.deny_untrusted_initiated_actions:
+        return Decision.ALLOW
+    if entry is not None:
+        return Decision.DENY if entry.trust is Trust.UNTRUSTED else Decision.ALLOW
+    if any(e.trust is Trust.UNTRUSTED for e in context):
         return Decision.DENY
     return Decision.ALLOW

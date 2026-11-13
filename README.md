@@ -2,7 +2,7 @@
 
 Provenance-gated long-term memory for LLM agents, with a multi-session evaluation harness.
 
-**Status: research prototype.** The library and the simulator work and are tested. Every result so far comes from a structural simulation with no language model in the loop. Nothing here has been evaluated against a real agent or an adaptive attacker yet.
+**Status: research prototype.** The library, the simulator and the real-model adapter work and are tested (145 tests, including seeded fuzzing of the security invariants). Every published result so far comes from a structural simulation with no language model in the loop. The adapter for real models is tested against a stand-in, not yet run against a real one, and nothing has been evaluated against an adaptive attacker.
 
 ## The problem
 
@@ -35,6 +35,17 @@ pip install -e ".[dev]"
 pytest
 python -m memgate_eval.run --seeds 20 --out results
 ```
+
+To put a real model in the agent's seat, point the harness at any OpenAI-compatible endpoint. The key is read from your environment and is never written anywhere.
+
+```bash
+export MEMGATE_API_BASE=https://your-endpoint/v1
+export MEMGATE_MODEL=your-model-name
+export MEMGATE_API_KEY=...        # omit for a local server that needs none
+python -m memgate_eval.run --agent llm --seeds 3 --sessions 30 --attacks 9 --out results-llm
+```
+
+Start small. Each run makes one model call per document read and one per task, for each of five policies, twice over (with and without attacks), plus a fatigue sweep.
 
 ```python
 from memgate import MemoryStore, Origin, presets, select_value, gate_argument
@@ -69,7 +80,7 @@ Three attack classes, taken from the structure of published attacks:
 - **override**: the stored value contradicts something the user said
 - **fill gap**: the stored value fills in something the user never specified
 
-The agent is a **worst-case compliant model**: it stores everything a document offers, restates it in its own notes, and obeys every remembered directive. Under that assumption attack success depends on where information is allowed to flow, not on how the attacker words the payload. This is a lower bound on what the architecture guarantees. It says nothing about how often a real model is fooled.
+Agents are pluggable (`memgate_eval/agents.py`). An agent only proposes what to store and what to do; the runtime labels and gates it. The default agent is a **worst-case compliant model**: it stores everything a document offers, restates it in its own notes, and obeys every remembered directive. Under that assumption attack success depends on where information is allowed to flow, not on how the attacker words the payload. This is a lower bound on what the architecture guarantees. It says nothing about how often a real model is fooled.
 
 ## Current results
 
@@ -82,7 +93,7 @@ See [`results/summary.md`](results/summary.md). In short, over 20 seeds of 60 se
 
 ## Limitations
 
-- **Simulation only.** No language model was run. The baselines' 100% figures follow from the compliant-agent assumption and should be read as "nothing in this design stops it", not as a measured rate.
+- **Simulation only, so far.** No language model has been run. The baselines' 100% figures follow from the compliant-agent assumption and should be read as "nothing in this design stops it", not as a measured rate.
 - **No adaptive attacker.** The test payloads are trivial canaries. The label-based rules do not depend on wording, but the confirmation prompt does depend on a human, and that has not been tested with people.
 - **Exact-key retrieval.** Real memory backends retrieve by embedding similarity, which adds attack surface this harness does not model.
 - **Synthetic workload.** Session counts, task mix and the share of consequential actions are assumptions. The forgetting and prompt rates will move with them.
@@ -90,14 +101,16 @@ See [`results/summary.md`](results/summary.md). In short, over 20 seeds of 60 se
 
 ## Next steps
 
-1. Replace the compliant agent in `memgate_eval/sim.py` with a real model and rerun on open-weight and API models.
+1. Run `--agent llm` on open-weight and API models and publish the numbers, whatever they show.
 2. Add adapters that load attack cases from the public benchmarks (Trojan Hippo Bench, MemSecBench, WhisperBench) and the TMA-NM benchmark.
 3. Run the same benchmarks against the closest published defenses for a like-for-like comparison.
 4. Sweep expiry length and consolidation interval to map the security and forgetting trade-off.
 
 ## Related work
 
-This design is not new in its parts. Runtime-enforced information-flow control for agents comes from CaMeL and FIDES. Signed memory entries appear in SMSR (arXiv 2606.12703). Origin-bound authority for memory, and the three laundering channels, are formalised in TMA-NM (arXiv 2606.24322), which is the closest prior work. What this repository adds is the lifecycle: what happens to provenance through consolidation, expiry and repair over many sessions, and what the defense costs in prompts and forgotten facts. See [`docs/paper_outline.md`](docs/paper_outline.md).
+This design is not new in its parts. Runtime-enforced information-flow control for agents comes from CaMeL and FIDES. Signed memory entries appear in SMSR (arXiv 2606.12703). Origin-bound authority for memory, and the three laundering channels, are formalised in TMA-NM (arXiv 2606.24322), which is the closest prior work. What this repository adds is the lifecycle: what happens to provenance through consolidation, expiry and repair over many sessions, and what the defense costs in prompts and forgotten facts. See [`docs/paper_outline.md`](docs/paper_outline.md) and [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+
+An interactive walkthrough of the problem is in [`demo/index.html`](demo/index.html).
 
 ## License
 
