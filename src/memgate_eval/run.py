@@ -16,7 +16,7 @@ from pathlib import Path
 
 from memgate import presets
 
-from .agents import Agent, LLMAgent, openai_compatible
+from .agents import Agent, CachedComplete, LLMAgent, openai_compatible
 from .scenario import generate
 from .sim import run
 
@@ -46,9 +46,12 @@ def aggregate(runs: list[dict]) -> dict:
 def sweep(
     seeds: int, n_sessions: int, ttl: int, fatigue: float, n_attacks: int,
     agent: Agent | None = None,
+    only: str | None = None,
 ) -> list[dict]:
     rows = []
     for policy in presets(ttl).values():
+        if only is not None and policy.name != only:
+            continue
         runs = [
             run(
                 generate(seed, n_sessions=n_sessions, n_attacks=n_attacks),
@@ -108,16 +111,18 @@ def main() -> None:
     ap.add_argument("--attacks", type=int, default=30)
     ap.add_argument("--fatigue", type=float, default=0.1)
     ap.add_argument("--agent", choices=["compliant", "llm"], default="compliant")
+    ap.add_argument("--max-calls", type=int, default=3000,
+                    help="with --agent llm, stop before making more model calls than this")
     ap.add_argument("--out", type=Path, default=Path("results"))
     args = ap.parse_args()
 
-    agent: Agent | None = LLMAgent(openai_compatible()) if args.agent == "llm" else None
+    model = CachedComplete(openai_compatible(), args.max_calls) if args.agent == "llm" else None
+    agent: Agent | None = LLMAgent(model) if model is not None else None
     under_attack = sweep(args.seeds, args.sessions, args.ttl, args.fatigue, args.attacks, agent)
     clean = sweep(args.seeds, args.sessions, args.ttl, args.fatigue, 0, agent)
     fatigue_rows = []
     for f in (0.0, 0.1, 0.3, 0.5):
-        full = [r for r in sweep(args.seeds, args.sessions, args.ttl, f, args.attacks, agent)
-                if r["policy"] == "full"][0]
+        full = sweep(args.seeds, args.sessions, args.ttl, f, args.attacks, agent, only="full")[0]
         fatigue_rows.append((f, full))
 
     report = [
@@ -158,6 +163,11 @@ def main() -> None:
         report.append(
             f"| {f:.1f} | {pct(row['asr'])} | {row['prompts_per_100_tasks']['mean']:.1f} |"
         )
+    if model is not None:
+        report += [
+            "",
+            f"Model calls made: {model.calls}. Repeated prompts answered from cache: {model.hits}.",
+        ]
     text = "\n".join(report) + "\n"
 
     args.out.mkdir(parents=True, exist_ok=True)

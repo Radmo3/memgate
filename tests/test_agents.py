@@ -102,3 +102,15 @@ def test_openai_compatible_transport_against_a_local_server():
     finally:
         server.shutdown()
     assert seen == {"path": "/v1/chat/completions", "auth": "Bearer test-key", "model": "test-model"}
+
+
+def test_cached_complete_reuses_replies_and_enforces_the_cap():
+    import pytest
+
+    from memgate_eval import CachedComplete
+
+    model = CachedComplete(lambda system, user: user.upper(), max_calls=2)
+    assert model("s", "a") == "A" and model("s", "a") == "A" and model("s", "b") == "B"
+    assert (model.calls, model.hits) == (2, 1)
+    with pytest.raises(RuntimeError):
+        model("s", "c")

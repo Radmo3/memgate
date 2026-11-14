@@ -133,6 +133,35 @@ def openai_compatible(
     return complete
 
 
+class CachedComplete:
+    """Reuse the reply to an identical prompt, and stop at a spending cap.
+
+    The same document is read under every policy, so most prompts repeat. With
+    temperature 0 a repeated prompt should get the same reply, so asking once
+    saves money and makes a run reproducible.
+    """
+
+    def __init__(self, complete: Complete, max_calls: int | None = None) -> None:
+        self.complete = complete
+        self.max_calls = max_calls
+        self.calls = 0
+        self.hits = 0
+        self._replies: dict[tuple[str, str], str] = {}
+
+    def __call__(self, system: str, user: str) -> str:
+        key = (system, user)
+        if key in self._replies:
+            self.hits += 1
+            return self._replies[key]
+        if self.max_calls is not None and self.calls >= self.max_calls:
+            raise RuntimeError(
+                f"Stopped after {self.calls} model calls (--max-calls). Nothing was written."
+            )
+        self.calls += 1
+        self._replies[key] = self.complete(system, user)
+        return self._replies[key]
+
+
 def extract_json(text: str, opener: str):
     """Pull the first JSON array or object out of a model reply.
 
