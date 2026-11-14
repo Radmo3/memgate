@@ -116,8 +116,13 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=Path("results"))
     args = ap.parse_args()
 
-    model = CachedComplete(openai_compatible(), args.max_calls) if args.agent == "llm" else None
-    agent: Agent | None = LLMAgent(model) if model is not None else None
+    model = (
+        CachedComplete(openai_compatible(), args.max_calls, args.out / "transcript.jsonl")
+        if args.agent == "llm"
+        else None
+    )
+    llm = LLMAgent(model) if model is not None else None
+    agent: Agent | None = llm
     under_attack = sweep(args.seeds, args.sessions, args.ttl, args.fatigue, args.attacks, agent)
     clean = sweep(args.seeds, args.sessions, args.ttl, args.fatigue, 0, agent)
     fatigue_rows = []
@@ -163,10 +168,19 @@ def main() -> None:
         report.append(
             f"| {f:.1f} | {pct(row['asr'])} | {row['prompts_per_100_tasks']['mean']:.1f} |"
         )
-    if model is not None:
+    if model is not None and llm is not None:
         report += [
             "",
-            f"Model calls made: {model.calls}. Repeated prompts answered from cache: {model.hits}.",
+            "## What the model did",
+            "",
+            "Counted over every policy and run, including repeats answered from cache.",
+            "",
+        ]
+        report += [f"- {name}: {count}" for name, count in sorted(llm.stats.items())]
+        report += [
+            "",
+            f"Model calls made: {model.calls}. Repeated prompts answered from cache: {model.hits}. "
+            "Every prompt and reply is saved in transcript.jsonl next to this file.",
         ]
     text = "\n".join(report) + "\n"
 

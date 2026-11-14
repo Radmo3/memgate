@@ -15,8 +15,10 @@ import os
 import re
 import urllib.error
 import urllib.request
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 from memgate import MemoryEntry, Trust
@@ -154,12 +156,21 @@ class CachedComplete:
     saves money and makes a run reproducible.
     """
 
-    def __init__(self, complete: Complete, max_calls: int | None = None) -> None:
+    def __init__(
+        self,
+        complete: Complete,
+        max_calls: int | None = None,
+        log_path: Path | None = None,
+    ) -> None:
         self.complete = complete
         self.max_calls = max_calls
+        self.log_path = log_path
         self.calls = 0
         self.hits = 0
         self._replies: dict[tuple[str, str], str] = {}
+        if log_path is not None:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text("")
 
     def __call__(self, system: str, user: str) -> str:
         key = (system, user)
@@ -171,8 +182,13 @@ class CachedComplete:
                 f"Stopped after {self.calls} model calls (--max-calls). Nothing was written."
             )
         self.calls += 1
-        self._replies[key] = self.complete(system, user)
-        return self._replies[key]
+        reply = self.complete(system, user)
+        self._replies[key] = reply
+        if self.log_path is not None:
+            step = "remember" if system == REMEMBER_SYSTEM else "act"
+            with self.log_path.open("a") as log:
+                log.write(json.dumps({"step": step, "prompt": user, "reply": reply}) + "\n")
+        return reply
 
 
 def extract_json(text: str, opener: str):
@@ -205,12 +221,19 @@ class LLMAgent:
     def __init__(self, complete: Complete) -> None:
         self.complete = complete
         self.calls = 0
+        self.stats: Counter = Counter()
 
     def remember(self, doc: ReadDoc) -> Sequence[Memo]:
         body = "\n".join(item.text for item in doc.items)
         self.calls += 1
+        self.stats["documents read"] += 1
         reply = self.complete(REMEMBER_SYSTEM, f"DOCUMENT (source: {doc.doc_id})\n{body}")
         parsed = extract_json(reply, "[")
+        if not isinstance(parsed, list):
+            self.stats["documents where the reply was not a JSON list"] += 1
+        elif not parsed:
+            self.stats["documents the model chose to remember nothing from"] += 1
+        doc_keys = [item.key for item in doc.items]
         memos = []
         for obj in parsed if isinstance(parsed, list) else []:
             if not isinstance(obj, dict):
@@ -221,9 +244,23 @@ class LLMAgent:
             value = _clean(obj.get("value"))
             instruction = _clean(obj.get("standing_instruction"))
             text = f"{topic}: {value}" if value else f"{topic}: {instruction}"
+            # Retrieval in this harness is by exact topic name, so map the
+            # model's wording onto the document's own topic when it is unambiguous.
+            key = re.sub(r"\s+", "", topic)
+            if key in doc_keys:
+                self.stats["memories whose topic matched the document exactly"] += 1
+            else:
+                named = [k for k in doc_keys if k.lower() in topic.lower()]
+                if len(named) == 1:
+                    key = named[0]
+                    self.stats["memories whose topic was reworded (mapped back)"] += 1
+                else:
+                    self.stats["memories filed under a topic no task will look up"] += 1
+            self.stats["memories with a value"] += value is not None
+            self.stats["memories with a standing instruction"] += instruction is not None
             memos.append(
                 Memo(
-                    key=re.sub(r"\s+", "", topic),
+                    key=key,
                     value=value,
                     text=text,
                     extra_actions=(instruction,) if instruction else (),
@@ -233,7 +270,9 @@ class LLMAgent:
 
     def propose(self, task, entries, show_labels) -> Proposal:
         if not entries:
+            self.stats["tasks with nothing in memory to consult"] += 1
             return Proposal()
+        self.stats["tasks where the model was shown memory"] += 1
         lines = []
         for e in entries:
             line = f"[{e.id}] {e.text}"
@@ -255,13 +294,21 @@ class LLMAgent:
         self.calls += 1
         parsed = extract_json(self.complete(ACT_SYSTEM, user), "{")
         if not isinstance(parsed, dict):
+            self.stats["tasks where the reply was not a JSON object"] += 1
             return Proposal()
         known = {e.id for e in entries}
         entry_id = _clean(parsed.get("use_memory_id"))
+        if entry_id is None:
+            self.stats["tasks where the model chose to ask the user"] += 1
+        elif entry_id in known:
+            self.stats["tasks where the model picked a memory"] += 1
+        else:
+            self.stats["tasks where the model named a memory id that does not exist"] += 1
         actions = []
         also = parsed.get("also_do")
         for obj in also if isinstance(also, list) else []:
             if isinstance(obj, dict) and _clean(obj.get("action")):
                 cited = _clean(obj.get("because_of_memory_id"))
                 actions.append((_clean(obj.get("action")), cited if cited in known else None))
+        self.stats["extra actions the model proposed"] += len(actions)
         return Proposal(entry_id if entry_id in known else None, tuple(actions))

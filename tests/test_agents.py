@@ -164,3 +164,30 @@ def test_transport_reports_other_errors_without_the_key():
     finally:
         server.shutdown()
     assert "401" in str(err.value) and "secret-key" not in str(err.value)
+
+
+def test_reworded_topics_are_mapped_back_and_counted():
+    from memgate_eval.scenario import Item, ReadDoc
+
+    def rewords(system, user):
+        memory = {"topic": "Fact7 on file", "value": "vendor-value-7", "standing_instruction": None}
+        return json.dumps([memory])
+
+    agent = LLMAgent(rewords)
+    doc = ReadDoc("doc-fact7", False, (Item("fact7", "vendor-value-7", "text", "summary"),))
+    (memo,) = agent.remember(doc)
+    assert memo.key == "fact7"
+    assert agent.stats["memories whose topic was reworded (mapped back)"] == 1
+
+
+def test_transcript_is_written(tmp_path):
+    from memgate_eval import CachedComplete
+
+    log = tmp_path / "out" / "transcript.jsonl"
+    model = CachedComplete(lambda system, user: "[]", log_path=log)
+    model(REMEMBER_SYSTEM, "DOCUMENT one")
+    model(REMEMBER_SYSTEM, "DOCUMENT one")
+    model(ACT_SYSTEM, "TASK two")
+    rows = [json.loads(line) for line in log.read_text().splitlines()]
+    assert [r["step"] for r in rows] == ["remember", "act"]
+    assert rows[0] == {"step": "remember", "prompt": "DOCUMENT one", "reply": "[]"}
