@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import urllib.error
 import urllib.request
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -110,24 +111,36 @@ def openai_compatible(
     if not base or not name:
         raise ValueError("Set MEMGATE_API_BASE and MEMGATE_MODEL (and MEMGATE_API_KEY if needed).")
 
+    send_temperature = True
+
     def complete(system: str, user: str) -> str:
+        nonlocal send_temperature
         key = api_key or os.environ.get("MEMGATE_API_KEY", "")
-        body = json.dumps(
-            {
-                "model": name,
-                "temperature": 0,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-            }
-        ).encode()
+        fields: dict = {
+            "model": name,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        }
+        if send_temperature:
+            fields["temperature"] = 0
         headers = {"Content-Type": "application/json"}
         if key:
             headers["Authorization"] = f"Bearer {key}"
-        request = urllib.request.Request(f"{base}/chat/completions", body, headers)
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            payload = json.load(response)
+        request = urllib.request.Request(
+            f"{base}/chat/completions", json.dumps(fields).encode(), headers
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                payload = json.load(response)
+        except urllib.error.HTTPError as err:
+            detail = err.read().decode(errors="replace")[:400]
+            if err.code == 400 and "temperature" in detail and send_temperature:
+                # Some models only accept their default temperature. Ask again without it.
+                send_temperature = False
+                return complete(system, user)
+            raise RuntimeError(f"The model endpoint answered HTTP {err.code}: {detail}") from None
         return payload["choices"][0]["message"]["content"] or ""
 
     return complete

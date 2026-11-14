@@ -114,3 +114,53 @@ def test_cached_complete_reuses_replies_and_enforces_the_cap():
     assert (model.calls, model.hits) == (2, 1)
     with pytest.raises(RuntimeError):
         model("s", "c")
+
+
+def _serve(handler_body):
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            status, reply = handler_body(body)
+            data = json.dumps(reply).encode()
+            self.send_response(status)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def test_transport_retries_without_temperature_when_the_model_rejects_it():
+    seen = []
+
+    def body(request):
+        seen.append("temperature" in request)
+        if "temperature" in request:
+            return 400, {"error": {"message": "Unsupported value: 'temperature' does not support 0"}}
+        return 200, {"choices": [{"message": {"content": "ok"}}]}
+
+    server = _serve(body)
+    try:
+        complete = openai_compatible(f"http://127.0.0.1:{server.server_port}/v1", "k", "m")
+        assert complete("s", "u") == "ok" and complete("s", "u2") == "ok"
+    finally:
+        server.shutdown()
+    assert seen == [True, False, False]
+
+
+def test_transport_reports_other_errors_without_the_key():
+    import pytest
+
+    server = _serve(lambda request: (401, {"error": {"message": "Incorrect API key provided"}}))
+    try:
+        complete = openai_compatible(f"http://127.0.0.1:{server.server_port}/v1", "secret-key", "m")
+        with pytest.raises(RuntimeError) as err:
+            complete("s", "u")
+    finally:
+        server.shutdown()
+    assert "401" in str(err.value) and "secret-key" not in str(err.value)
