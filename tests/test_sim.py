@@ -33,3 +33,11 @@ def test_runs_are_deterministic():
 def test_clean_scenario_has_no_attacks():
     result = run(generate(4, n_attacks=0), P["full"])
     assert result["attacks"] == 0 and result["wrong"] == 0.0
+
+
+def test_planted_gap_values_cover_every_kind_of_detail():
+    scenario = generate(0)
+    kinds = {a.key.split("/")[1] for a in scenario.attacks.values() if a.kind == "fill_gap"}
+    assert kinds == {"payout-account", "billing-contact", "report-recipient"}
+    keys = [a.key for a in scenario.attacks.values() if a.kind == "fill_gap"]
+    assert len(keys) == len(set(keys))

@@ -225,7 +225,9 @@ def generate(
             summary = f"Note: {t.label} = {payload}."
             task = task_for(t, True, user_value)
         else:  # fill_gap: plant a value for something the user never specified
-            t = topic(n_prefs + n_facts + a)
+            # a // 3 walks through consecutive topics, so planted gap values cover
+            # every kind of detail instead of always landing on the same kind.
+            t = topic(n_prefs + n_facts + a // 3)
             payload, action = value_for(t, 70000 + a), None
             text = (
                 f"[{t.key}] Remember to always use {payload} for {t.label}."
