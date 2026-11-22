@@ -16,23 +16,23 @@ Settings: 20 seeds, 60 sessions, 30 attacks per run, untrusted TTL 20 sessions, 
 
 ## Utility under attack
 
-| Policy | Correct, no prompt % | Correct after prompt % | Forgotten % | Wrong value used % | Prompts per 100 tasks |
-|---|---|---|---|---|---|
-| none | 79.0 ± 3.1 | 0.0 ± 0.0 | 0.0 ± 0.0 | 21.0 ± 3.1 | 0.0 |
-| filter | 79.0 ± 3.1 | 0.0 ± 0.0 | 0.0 ± 0.0 | 21.0 ± 3.1 | 0.0 |
-| ttl | 79.0 ± 3.1 | 0.0 ± 0.0 | 0.0 ± 0.0 | 21.0 ± 3.1 | 0.0 |
-| taint | 64.2 ± 3.9 | 0.0 ± 0.0 | 21.2 ± 3.0 | 14.6 ± 2.5 | 0.0 |
-| full | 85.1 ± 1.1 | 8.1 ± 1.0 | 6.8 ± 1.5 | 0.0 ± 0.0 | 13.0 |
+| Policy | Correct, no prompt % | Correct after prompt % | Forgotten % | Asked the user anyway % | Wrong value used % | Prompts per 100 tasks |
+|---|---|---|---|---|---|---|
+| none | 79.0 ± 3.1 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 21.0 ± 3.1 | 0.0 |
+| filter | 79.0 ± 3.1 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 21.0 ± 3.1 | 0.0 |
+| ttl | 79.0 ± 3.1 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 21.0 ± 3.1 | 0.0 |
+| taint | 64.2 ± 3.9 | 0.0 ± 0.0 | 21.2 ± 3.0 | 0.0 ± 0.0 | 14.6 ± 2.5 | 0.0 |
+| full | 85.1 ± 1.1 | 8.1 ± 1.0 | 6.8 ± 1.5 | 0.0 ± 0.0 | 0.0 ± 0.0 | 13.0 |
 
 ## Utility with no attacker
 
-| Policy | Correct, no prompt % | Correct after prompt % | Forgotten % | Wrong value used % | Prompts per 100 tasks |
-|---|---|---|---|---|---|
-| none | 100.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 |
-| filter | 100.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 |
-| ttl | 100.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 |
-| taint | 85.9 ± 2.3 | 0.0 ± 0.0 | 14.1 ± 2.3 | 0.0 ± 0.0 | 0.0 |
-| full | 82.3 ± 1.3 | 9.6 ± 1.2 | 8.1 ± 1.8 | 0.0 ± 0.0 | 9.6 |
+| Policy | Correct, no prompt % | Correct after prompt % | Forgotten % | Asked the user anyway % | Wrong value used % | Prompts per 100 tasks |
+|---|---|---|---|---|---|---|
+| none | 100.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 |
+| filter | 100.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 |
+| ttl | 100.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 |
+| taint | 85.9 ± 2.3 | 0.0 ± 0.0 | 14.1 ± 2.3 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0.0 |
+| full | 82.3 ± 1.3 | 9.6 ± 1.2 | 8.1 ± 1.8 | 0.0 ± 0.0 | 0.0 ± 0.0 | 9.6 |
 
 ## Full policy: attack success against user fatigue
 

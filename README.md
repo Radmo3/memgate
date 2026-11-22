@@ -2,7 +2,7 @@
 
 Provenance-gated long-term memory for LLM agents, with a multi-session evaluation harness.
 
-**Status: research prototype.** The library, the simulator and the real-model adapter work and are tested (145 tests, including seeded fuzzing of the security invariants). Every published result so far comes from a structural simulation with no language model in the loop. The adapter for real models is tested against a stand-in, not yet run against a real one, and nothing has been evaluated against an adaptive attacker.
+**Status: research prototype.** The library, the simulator and the real-model adapter work and are tested (152 tests, including seeded fuzzing of the security invariants). Every published result so far comes from a structural simulation with no language model in the loop. One small real-model run has been done as a smoke test (see below); it is not a result. Nothing has been evaluated against an adaptive attacker.
 
 ## The problem
 
@@ -91,18 +91,29 @@ See [`results/summary.md`](results/summary.md). In short, over 20 seeds of 60 se
 - `full` blocks extra-action and override attacks outright. What remains is gap filling, which succeeds only when the user approves a bad prompt: 0% if they never do, 2.3% at a 10% misclick rate, 12.5% at 50%.
 - The cost of `full` with no attacker present: about 10 confirmation prompts per 100 tasks, and about 8% of needed values forgotten because an untrusted fact expired before anyone confirmed it.
 
+## Real-model status
+
+One smoke test has been run: a single small hosted model, one repeat, nine planted items. It is too small to report numbers from, but it changed the harness:
+
+- The model declined to save four of the nine planted items by itself, mostly the bluntly worded ones, and saved the ones worded like ordinary notes.
+- With no defense, one saved standing instruction was later acted on. With labels enforced, none were.
+- The original task wording was an abstract placeholder, and the model asked the user instead of acting on almost every consequential task. Tasks are now concrete requests ("Pay this month's invoice from ..."), and the report separates "forgot the detail" from "had it and asked the user anyway".
+- The first version let the runtime use a trusted value even when the model had chosen to ask. That flattered the full policy and has been removed.
+
+No real-model numbers are published here until there are several models and repeats on the concrete tasks.
+
 ## Limitations
 
 - **Simulation only, so far.** No language model has been run. The baselines' 100% figures follow from the compliant-agent assumption and should be read as "nothing in this design stops it", not as a measured rate.
 - **No adaptive attacker.** The test payloads are trivial canaries. The label-based rules do not depend on wording, but the confirmation prompt does depend on a human, and that has not been tested with people.
 - **Exact-key retrieval.** Real memory backends retrieve by embedding similarity, which adds attack surface this harness does not model.
-- **Synthetic workload.** Session counts, task mix and the share of consequential actions are assumptions. The forgetting and prompt rates will move with them.
+- **Synthetic workload.** The tasks are short back-office requests about invented companies. Session counts, task mix and the share of consequential actions are assumptions, and the forgetting and prompt rates will move with them. Each document statement carries a topic handle, which stands in for retrieval.
 - **Runtime trust.** Everything rests on the runtime labelling channels correctly. A tool marked trusted that echoes attacker text defeats it.
 
 ## Next steps
 
 1. Run `--agent llm` on open-weight and API models and publish the numbers, whatever they show.
-2. Add adapters that load attack cases from the public benchmarks (Trojan Hippo Bench, MemSecBench, WhisperBench) and the TMA-NM benchmark.
+2. Run on MemoryDojo (arXiv 2611.09721) once its code is released, and add adapters for the other public benchmarks (Trojan Hippo Bench, MemSecBench, WhisperBench, MEM-INV-Bench).
 3. Run the same benchmarks against the closest published defenses for a like-for-like comparison.
 4. Sweep expiry length and consolidation interval to map the security and forgetting trade-off.
 

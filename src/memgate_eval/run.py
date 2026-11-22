@@ -22,7 +22,7 @@ from .sim import run
 
 SCALAR = [
     "write_asr", "asr", "mean_sessions_alive", "alive_at_end",
-    "residual_after_retraction", "ok_silent", "ok_prompted", "missing",
+    "residual_after_retraction", "ok_silent", "ok_prompted", "missing", "asked",
     "wrong", "declined", "prompts_per_100_tasks",
 ]
 
@@ -91,13 +91,13 @@ def table_attack(rows: list[dict]) -> str:
 def table_utility(rows: list[dict]) -> str:
     lines = [
         "| Policy | Correct, no prompt % | Correct after prompt % | Forgotten % "
-        "| Wrong value used % | Prompts per 100 tasks |",
-        "|---|---|---|---|---|---|",
+        "| Asked the user anyway % | Wrong value used % | Prompts per 100 tasks |",
+        "|---|---|---|---|---|---|---|",
     ]
     for r in rows:
         lines.append(
             f"| {r['policy']} | {pct(r['ok_silent'])} | {pct(r['ok_prompted'])} "
-            f"| {pct(r['missing'])} | {pct(r['wrong'])} "
+            f"| {pct(r['missing'])} | {pct(r['asked'])} | {pct(r['wrong'])} "
             f"| {r['prompts_per_100_tasks']['mean']:.1f} |"
         )
     return "\n".join(lines)

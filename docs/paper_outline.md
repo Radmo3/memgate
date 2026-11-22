@@ -1,6 +1,6 @@
 # Paper outline
 
-**Working title:** The Price of Provenance: Confirmation Load, Forgetting and Repair in Long-Lived Agent Memory
+**Working title:** Ask, Forget, Repair: What Provenance-Gated Agent Memory Costs Over a Long Deployment
 
 **Target:** arXiv cs.CR (primary), cross-list cs.AI. Workshop submission after results from real models.
 
@@ -17,6 +17,9 @@ Provenance-gated memory already stops poisoning in published evaluations, but no
 | TMA-NM (2606.24322) | Write-time origin binding, taint through agent summaries and tool calls, untrusted items cannot authorise actions, single-use user authorisation, corroboration by two independent trusted principals, hash-chained log. Tested on eight real models with a defense-aware attack variant. Code and benchmark released. | No expiry or forgetting. No retraction or repair. At most 8 intervening sessions. Its utility figure counts only corroborated actions; it calls confirmation "added friction" whose frequency in deployment is unquantified. |
 | PerMIT (2610.28987) | Quarantined reader, confirmation gate, eviction, shared community endorsement, Lean proofs for the single-user core. Tested on Trojan Hippo with live agents. Counts approvals per user in a simulated community. | No expiry. Forgotten facts not measured. Human review time left to a separate study. Code not yet released. Only the first part of this long paper was read. |
 | Audience-Bound Persistent Memory (2609.36373) | Labels that survive summaries and merges, across the memory lifecycle | Confidentiality only, not integrity or actions. Expiry and deletion not evaluated. |
+| The Price of Safety (2609.22818) | Benign-use cost of four memory defenses: accuracy, token overhead, withheld memories. One backbone, five conversations. | No attacks. No provenance-gated defense that fires (its origin filter never triggered). No confirmation prompts, expiry, merging or repair. The earlier working title here was too close to this paper's and was changed. |
+| MemoryDojo (2611.09721) | Realistic multi-session benchmark: 155 trajectories, four tool-using domains, five memory backends, up to 60 sessions. | Evaluates no defenses and names that as future work. Code promised, not yet released. The natural testbed for this paper, and its authors are well placed to do the same study. |
+| Accept Changes, Reject Attacks (2610.41056); Stage-Wise Utility-Risk Trade-offs (2608.30177) | Not yet read. | Read before writing. |
 | SMSR (2606.12703) | Signed writes plus randomised retrieval with a certified bound | Append-only memory; attack goal is a false answer, not an action |
 | CaMeL, FIDES, Progent | Information-flow control within one session | No persistent memory |
 | Trojan Hippo Bench, MemSecBench, WhisperBench | Attack benchmarks across memory backends | Short horizons; defenses are not the focus |

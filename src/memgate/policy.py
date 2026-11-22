@@ -85,8 +85,11 @@ def resolve_value(
     """Decide which entry's value an action uses, given what the agent proposed.
 
     When the conflict rule is on and the user has stated a value, the runtime
-    uses that value regardless of what the agent asked for.
+    uses that value regardless of which memory the agent asked for. If the agent
+    proposed nothing, it is asking the user, and that is respected.
     """
+    if proposed is None:
+        return None
     if policy.trusted_wins_conflicts:
         trusted = [e for e in entries if e.value is not None and e.trust is Trust.TRUSTED]
         if trusted:
