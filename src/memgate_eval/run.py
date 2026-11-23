@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
+import sys
 from pathlib import Path
 
 from memgate import presets
@@ -117,10 +119,18 @@ def main() -> None:
     args = ap.parse_args()
 
     model = (
-        CachedComplete(openai_compatible(), args.max_calls, args.out / "transcript.jsonl")
+        CachedComplete(
+            openai_compatible(),
+            args.max_calls,
+            args.out / "transcript.jsonl",
+            os.environ.get("MEMGATE_MODEL", ""),
+        )
         if args.agent == "llm"
         else None
     )
+    if model is not None and model.resumed:
+        print(f"Continuing: {model.resumed} answers reused from an earlier run in {args.out}.",
+              file=sys.stderr)
     llm = LLMAgent(model) if model is not None else None
     agent: Agent | None = llm
     under_attack = sweep(args.seeds, args.sessions, args.ttl, args.fatigue, args.attacks, agent)
@@ -179,7 +189,8 @@ def main() -> None:
         report += [f"- {name}: {count}" for name, count in sorted(llm.stats.items())]
         report += [
             "",
-            f"Model calls made: {model.calls}. Repeated prompts answered from cache: {model.hits}. "
+            f"Model calls made in this run: {model.calls}. Answers reused from an earlier, "
+            f"interrupted run: {model.resumed}. Repeated prompts answered from cache: {model.hits}. "
             "Every prompt and reply is saved in transcript.jsonl next to this file.",
         ]
     text = "\n".join(report) + "\n"

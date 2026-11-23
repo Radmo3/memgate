@@ -190,7 +190,7 @@ def test_transcript_is_written(tmp_path):
     model(ACT_SYSTEM, "TASK two")
     rows = [json.loads(line) for line in log.read_text().splitlines()]
     assert [r["step"] for r in rows] == ["remember", "act"]
-    assert rows[0] == {"step": "remember", "prompt": "DOCUMENT one", "reply": "[]"}
+    assert rows[0] == {"step": "remember", "model": "", "prompt": "DOCUMENT one", "reply": "[]"}
 
 
 def test_an_agent_that_asks_is_counted_as_asking_and_never_overridden():
@@ -217,3 +217,62 @@ def test_task_prompts_contain_a_concrete_request():
     acts = [user for system, user in seen if system == ACT_SYSTEM]
     assert acts and all(u.startswith("USER REQUEST: ") and "DETAIL NEEDED: " in u for u in acts)
     assert not any("attacker" in user.lower() for _, user in seen)
+
+
+def test_an_interrupted_run_continues_from_its_transcript(tmp_path):
+    from memgate_eval import CachedComplete
+
+    log = tmp_path / "transcript.jsonl"
+    first = CachedComplete(lambda system, user: "first", log_path=log, model="m1")
+    first(REMEMBER_SYSTEM, "DOCUMENT one")
+    with log.open("a") as f:
+        f.write('{"step": "act", "prompt": "cut off mid-wri')      # a crash mid-write
+
+    def must_not_be_called(system, user):
+        raise AssertionError("paid twice for the same prompt")
+
+    again = CachedComplete(must_not_be_called, log_path=log, model="m1")
+    assert again.resumed == 1 and again(REMEMBER_SYSTEM, "DOCUMENT one") == "first"
+    assert again.calls == 0
+
+    other = CachedComplete(lambda system, user: "second", log_path=log, model="m2")
+    assert other.resumed == 0 and other(REMEMBER_SYSTEM, "DOCUMENT one") == "second"
+
+
+def test_transport_retries_when_the_endpoint_is_busy_or_silent():
+    import time as clock
+
+    seen = []
+
+    def body(request):
+        seen.append(1)
+        if len(seen) == 1:
+            return 503, {"error": {"message": "overloaded"}}
+        if len(seen) == 2:
+            clock.sleep(0.6)                                          # longer than the timeout
+        return 200, {"choices": [{"message": {"content": "ok"}}]}
+
+    server = _serve(body)
+    try:
+        complete = openai_compatible(
+            f"http://127.0.0.1:{server.server_port}/v1", "k", "m", timeout=0.3, backoff=0.01
+        )
+        assert complete("s", "u") == "ok"
+    finally:
+        server.shutdown()
+    assert len(seen) == 3
+
+
+def test_transport_gives_up_with_a_clear_message():
+    import pytest
+
+    server = _serve(lambda request: (500, {"error": {"message": "down"}}))
+    try:
+        complete = openai_compatible(
+            f"http://127.0.0.1:{server.server_port}/v1", "secret-key", "m", retries=2, backoff=0.01
+        )
+        with pytest.raises(RuntimeError) as err:
+            complete("s", "u")
+    finally:
+        server.shutdown()
+    assert "3 times" in str(err.value) and "secret-key" not in str(err.value)

@@ -13,6 +13,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
+import time
 import urllib.error
 import urllib.request
 from collections import Counter
@@ -106,7 +108,9 @@ def openai_compatible(
     base_url: str | None = None,
     api_key: str | None = None,
     model: str | None = None,
-    timeout: float = 60.0,
+    timeout: float = 120.0,
+    retries: int = 5,
+    backoff: float = 2.0,
 ) -> Complete:
     """Build a completion function for any OpenAI-compatible chat endpoint.
 
@@ -138,17 +142,31 @@ def openai_compatible(
         request = urllib.request.Request(
             f"{base}/chat/completions", json.dumps(fields).encode(), headers
         )
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                payload = json.load(response)
-        except urllib.error.HTTPError as err:
-            detail = err.read().decode(errors="replace")[:400]
-            if err.code == 400 and "temperature" in detail and send_temperature:
-                # Some models only accept their default temperature. Ask again without it.
-                send_temperature = False
-                return complete(system, user)
-            raise RuntimeError(f"The model endpoint answered HTTP {err.code}: {detail}") from None
-        return payload["choices"][0]["message"]["content"] or ""
+        problem = ""
+        for attempt in range(retries + 1):
+            if attempt:
+                time.sleep(backoff * 2 ** (attempt - 1))
+            try:
+                with urllib.request.urlopen(request, timeout=timeout) as response:
+                    payload = json.load(response)
+                return payload["choices"][0]["message"]["content"] or ""
+            except urllib.error.HTTPError as err:
+                detail = err.read().decode(errors="replace")[:400]
+                if err.code == 400 and "temperature" in detail and send_temperature:
+                    # Some models only accept their default temperature. Ask again without it.
+                    send_temperature = False
+                    return complete(system, user)
+                if err.code != 429 and err.code < 500:
+                    raise RuntimeError(
+                        f"The model endpoint answered HTTP {err.code}: {detail}"
+                    ) from None
+                problem = f"HTTP {err.code}: {detail}"      # busy or rate limited: try again
+            except (TimeoutError, urllib.error.URLError, ConnectionError) as err:
+                problem = f"no answer ({err})"              # slow or dropped: try again
+        raise RuntimeError(
+            f"The model endpoint failed {retries + 1} times in a row; the last problem was {problem}. "
+            "Answers so far are saved. Run the same command again to continue."
+        )
 
     return complete
 
@@ -159,6 +177,10 @@ class CachedComplete:
     The same document is read under every policy, so most prompts repeat. With
     temperature 0 a repeated prompt should get the same reply, so asking once
     saves money and makes a run reproducible.
+
+    Every answer is appended to ``log_path`` as it arrives. If that file already
+    exists, its answers for the same model are loaded first, so a run that was
+    interrupted continues where it stopped instead of paying again.
     """
 
     def __init__(
@@ -166,16 +188,31 @@ class CachedComplete:
         complete: Complete,
         max_calls: int | None = None,
         log_path: Path | None = None,
+        model: str = "",
     ) -> None:
         self.complete = complete
         self.max_calls = max_calls
         self.log_path = log_path
+        self.model = model
         self.calls = 0
         self.hits = 0
+        self.resumed = 0
         self._replies: dict[tuple[str, str], str] = {}
         if log_path is not None:
             log_path.parent.mkdir(parents=True, exist_ok=True)
-            log_path.write_text("")
+            if log_path.exists():
+                for line in log_path.read_text().splitlines():
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue                      # a line cut off mid-write
+                    if row.get("model", model) != model:
+                        continue                      # answers from a different model
+                    system = REMEMBER_SYSTEM if row.get("step") == "remember" else ACT_SYSTEM
+                    self._replies[(system, row["prompt"])] = row["reply"]
+                self.resumed = len(self._replies)
+            else:
+                log_path.write_text("")
 
     def __call__(self, system: str, user: str) -> str:
         key = (system, user)
@@ -184,15 +221,19 @@ class CachedComplete:
             return self._replies[key]
         if self.max_calls is not None and self.calls >= self.max_calls:
             raise RuntimeError(
-                f"Stopped after {self.calls} model calls (--max-calls). Nothing was written."
+                f"Stopped after {self.calls} model calls (--max-calls). Answers so far are "
+                "saved. Run the same command again with a higher --max-calls to continue."
             )
-        self.calls += 1
         reply = self.complete(system, user)
+        self.calls += 1
         self._replies[key] = reply
         if self.log_path is not None:
             step = "remember" if system == REMEMBER_SYSTEM else "act"
+            row = {"step": step, "model": self.model, "prompt": user, "reply": reply}
             with self.log_path.open("a") as log:
-                log.write(json.dumps({"step": step, "prompt": user, "reply": reply}) + "\n")
+                log.write(json.dumps(row) + "\n")
+            if self.calls % 50 == 0:
+                print(f"  ... {self.calls} model calls so far", file=sys.stderr, flush=True)
         return reply
 
 
