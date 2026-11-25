@@ -2,7 +2,7 @@
 
 Provenance-gated long-term memory for LLM agents, with a multi-session evaluation harness.
 
-**Status: research prototype.** The library, the simulator and the real-model adapter work and are tested (152 tests, including seeded fuzzing of the security invariants). Every published result so far comes from a structural simulation with no language model in the loop. One small real-model run has been done as a smoke test (see below); it is not a result. Nothing has been evaluated against an adaptive attacker.
+**Status: research prototype.** The library, the simulator and the real-model adapter work and are tested (159 tests, including seeded fuzzing of the security invariants). Every published result so far comes from a structural simulation with no language model in the loop. One small real-model run has been done as a smoke test (see below); it is not a result. Nothing has been evaluated against an adaptive attacker.
 
 ## The problem
 
@@ -43,6 +43,13 @@ export MEMGATE_API_BASE=https://your-endpoint/v1
 export MEMGATE_MODEL=your-model-name
 export MEMGATE_API_KEY=...        # omit for a local server that needs none
 python -m memgate_eval.run --agent llm --seeds 3 --sessions 30 --attacks 9 --out results-llm
+```
+
+To run several models at once through one endpoint and key (an aggregator that serves many vendors is the simplest), list the names it offers and then start them together. Each model gets its own folder, a wrong name is caught by a one-request check before anything is spent, and an interrupted run continues when the same command is repeated.
+
+```bash
+python -m memgate_eval.batch --list claude
+python -m memgate_eval.batch --models vendor/model-a,vendor/model-b --seeds 5 --out-root results-llm
 ```
 
 Start small. Each run makes one model call per document read and one per task, for each of five policies, twice over (with and without attacks), plus a fatigue sweep.
