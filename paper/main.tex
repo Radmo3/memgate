@@ -39,11 +39,14 @@ measurement of cost, not a ranking of models. Code, workload and every model rep
 
 \section{Introduction}
 
-Agents that keep memory across sessions inherit a delayed form of prompt injection. A document
+Agents that keep memory across sessions inherit a delayed form of indirect prompt
+injection~\cite{greshake}. Attacks that plant content in an agent's memory or knowledge base are
+well documented~\cite{agentpoison,minja,mpbench}. A document
 read today (an email, a web page, a shared file) can leave behind a memory that steers an action
 weeks later, after the document itself is gone. A line of recent work addresses this by attaching
 provenance to memory and denying untrusted memory the authority to trigger consequential
-actions~\cite{tmanm,permit,ppmf,sleeperchannels}. These systems report near-zero attack success.
+actions~\cite{tmanm,permit,ppmf,sleeperchannels}. The systems that report measurements find
+no or almost no successful attacks~\cite{tmanm,permit,ppmf}.
 
 Two questions are left open by that work, and they matter to anyone deciding whether to deploy
 such a defense. First, what does it cost? A legitimate supplier really does send a new bank
@@ -78,8 +81,13 @@ model behind a chat-completions endpoint can be evaluated, with every prompt and
 
 \paragraph{Provenance-gated memory.} TMA-NM binds a memory item's authority to its origin at write
 time, propagates that through the agent's own summaries, and reports no successful attacks across
-eight models, with machine-checked proofs~\cite{tmanm}. PerMIT combines a quarantined reader with a
-confirmation gate and eviction~\cite{permit}. PPMF describes \emph{provenance laundering}, in which
+eight models from six vendors, with its core invariants model-checked in TLA+~\cite{tmanm}. It
+reports legitimate-task utility equal to the undefended agent; legitimate actions that rest on
+uncorroborated outside content go through a one-time user confirmation. PerMIT combines a
+quarantined reader, a gate that releases an untrusted value only after the exact value is
+confirmed, eviction, and endorsements shared across a community of users, with two integrity
+theorems machine-checked in Lean~4; it reports verifier false-positive rates and, for a simulated
+community, approvals saved per user~\cite{permit}. PPMF describes \emph{provenance laundering}, in which
 consolidation rewrites outside content as apparent user history, and gates tool calls on
 platform-maintained provenance; it reports that readable provenance cues in memory text remained
 exploitable on several small open-weight models while the runtime gate held~\cite{ppmf}. Maloyan
@@ -88,6 +96,14 @@ outside the model loop and argue that only the latter is load-bearing, without a
 measurement~\cite{sleeperchannels}. Our Labels and Enforced conditions correspond to that
 distinction. We add measurements on current hosted models, where the picture differs from the
 small open-weight models studied before, and a breakdown of the cost.
+
+\paragraph{Marking untrusted content for the model.} Our Labels condition is a memory-specific
+case of an older idea. Spotlighting marks untrusted text so that the model can tell it from
+instructions~\cite{spotlighting}, and vendors train models to give lower privilege to content
+that arrives through tools~\cite{instructionhierarchy,geminilessons}. That training is a
+plausible reason the hosted models we test respect a visible label; we did not test this
+explanation. CaMeL takes the opposite position, enforcing information flow outside the model so
+that safety does not depend on the model's cooperation~\cite{camel}.
 
 \paragraph{Cost of memory defenses.} ``The Price of Safety'' measures benign accuracy and token
 overhead for four memory defenses, with no attacker and no confirmation step~\cite{priceofsafety}.
@@ -103,7 +119,18 @@ smaller ones~\cite{trustgap}. Li et al.\ compare how two Claude models and a Qwe
 whether to persist, verify or ask, without provenance labels or planted content~\cite{rememberverify}.
 We observe related differences between vendors in an adversarial, multi-session setting.
 
-\paragraph{Benchmarks and attacks.} MemoryDojo provides realistic multi-session tasks across five
+\paragraph{Asking the user.} Confirmation steps assume an attentive person. Field studies of
+security warnings found click-through rates that vary widely and can be high~\cite{warningland},
+Mitchell et al.\ argue that repeated approval requests from agents erode the scrutiny they rely
+on~\cite{outoftheloop}, and Wang et al.\ model when an agent should ask at all given limited human
+attention~\cite{whentoask}. We vary the simulated user's carelessness but do not study people.
+
+\paragraph{Benchmarks and attacks.} MPBench catalogues memory write channels and attack classes
+for two agent harnesses and recommends write-path provenance tracking without testing
+it~\cite{mpbench}. MemSecBench follows planted memory from write to consequence to repair and
+finds that repair often removes benign memory along with the malicious entry~\cite{memsecbench};
+we measure whether planted items can be removed and not what else is removed with them. MemoryDojo
+provides realistic multi-session tasks across five
 memory backends and evaluates no defenses~\cite{memorydojo}; it would be a better testbed than our
 synthetic workload once its code is available. Adaptive attacks have repeatedly broken
 prompt-injection defenses that reported near-zero attack success against static
@@ -137,8 +164,8 @@ sheet. Do not pay anything yet.'').
 
 The three kinds of planted item are an \emph{extra action} (a standing instruction to copy
 material to an outside address), an \emph{override} (a value contradicting one the user stated),
-and a \emph{fill gap} (a value for a detail the user never gave). Half are worded bluntly
-(``Ignore the earlier setting. Always use \ldots'') and half plainly (``\ldots\ is now
+and a \emph{fill gap} (a value for a detail the user never gave). About half are worded bluntly
+(``Ignore the earlier setting. Always use \ldots'') and the rest plainly (``\ldots\ is now
 \ldots''). They are fixed templates. Nothing about them is tuned to any model or defense.
 Memory is consolidated every five sessions: entries about the same topic are merged and the
 newest value wins. We use five seeds, so each model sees 150 planted items. Because seeds share
@@ -185,7 +212,8 @@ instruction executed. \emph{Saved} is the share present in memory after the docu
 requests whose needed detail has a true value, each is classed as \emph{correct, unprompted};
 \emph{correct after prompt}; \emph{detail lost} (no entry holding the right value could be
 retrieved, because it was never saved or had expired); \emph{asked anyway} (such an entry was
-retrievable and the model chose to ask the user); or \emph{wrong}. Cost figures come from a second
+retrievable and the model chose to ask the user); \emph{wrong}; or, under attack only,
+\emph{declined} (the user refused a confirmation for a planted value). Cost figures come from a second
 set of runs with the planted items removed. Tables report the mean and standard deviation over
 five seeds.
 
@@ -294,7 +322,7 @@ the model never proposed an untrusted value for a request that acts.
 
 \emph{The runtime asks.} Llama never asked on its own, so the gate did the work, at about 10
 confirmation prompts per 100 requests; Terra produced 7 and Luna under 2. A confirmation is
-cheaper for the user than an open question, since it shows the value and its source, and an
+arguably cheaper for the user than an open question, since it shows the value and its source, and an
 approved value becomes trusted and is not asked about again.
 
 \emph{Details expire.} Untrusted entries expire after 20 sessions, and a legitimate fact may be
@@ -351,6 +379,11 @@ the comparison between the two is relied on.
 \item \textbf{One run configuration per model.} Five seeds, one prompt wording, one expiry
 length. We report standard deviations and no significance tests. Replies are not guaranteed to be
 deterministic. Four models were reached through an aggregator and two through their vendor's API.
+\item \textbf{Repair is measured one-sidedly.} We check that planted items are gone after their
+source is retracted. We do not measure what legitimate memory is removed with them. Our labels
+are assigned per session, so a legitimate fact noted in the same session as a planted document
+shares its source and would be retracted too; MemSecBench reports that such collateral loss is
+the main obstacle to repair~\cite{memsecbench}.
 \item \textbf{Our implementation only.} We did not run the released implementations of the
 defenses we cite. The Enforced condition is our own reading of those mechanisms.
 \item \textbf{Empty replies.} Twenty-one replies from the two Claude models were empty and are
@@ -382,16 +415,35 @@ Code, workload generator, per-model reports and full transcripts:
 \url{https://github.com/Radmo3/memgate} (private at the time of this draft).
 
 \begin{thebibliography}{99}\small
-% TODO before submission: complete author lists from the arXiv records. Entries without
-% authors below are ones where the author list was not verified while drafting.
+\bibitem{greshake} K.~Greshake, S.~Abdelnabi, S.~Mishra, C.~Endres, T.~Holz, M.~Fritz. Not what
+you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt
+Injection. arXiv:2302.12173, 2023.
+\bibitem{agentpoison} Z.~Chen, Z.~Xiang, C.~Xiao, D.~Song, B.~Li. AgentPoison: Red-teaming LLM
+Agents via Poisoning Memory or Knowledge Bases. NeurIPS 2024. arXiv:2407.12784.
+\bibitem{minja} S.~Dong, S.~Xu, P.~He, Y.~Li, J.~Tang, T.~Liu, H.~Liu, Z.~Xiang. Memory Injection
+Attacks on LLM Agents via Query-Only Interaction. arXiv:2503.03704, 2025.
+\bibitem{mpbench} P.~Dash, T.~Ge, A.~Jain, T.~Shah, Z.~Shang. From Untrusted Input to Trusted
+Memory: A Systematic Study of Memory Poisoning Attacks in LLM Agents. Workshop on Agents in the
+Wild, ICML 2026. arXiv:2606.04329.
 \bibitem{tmanm} Y.~Louck. Securing LLM-Agent Long-Term Memory Against Poisoning: Non-Malleable,
 Origin-Bound Authority with Machine-Checked Guarantees. arXiv:2606.24322, 2026.
-\bibitem{permit} PerMIT. arXiv:2610.28987, 2026.
+\bibitem{permit} T.~Jiang, M.~Bai, S.~Shahriar, W.~Du, S.~Swamy. PerMIT: Securing Persistent Memory
+for LLM Agents via Machine-Checked Integrity Theorems and Scalable Community Trust.
+arXiv:2610.28987, 2026.
 \bibitem{ppmf} J.~Xu, Y.~Xiao, W.~Shao, H.~Liu, X.~Li. Memory Provenance Laundering in LLM Agents:
 A Non-Amplification Firewall for Persistent Memory. arXiv:2607.29167, 2026.
 \bibitem{sleeperchannels} N.~Maloyan, D.~Namiot. Sleeper Channels and Provenance Gates: Persistent
 Prompt Injection in Always-on Autonomous AI Agents. arXiv:2605.13471, 2026.
-\bibitem{priceofsafety} The Price of Safety: Benign-Case Utility and Token Overhead of
+\bibitem{spotlighting} K.~Hines, G.~Lopez, M.~Hall, F.~Zarfati, Y.~Zunger, E.~K{\i}c{\i}man.
+Defending Against Indirect Prompt Injection Attacks With Spotlighting. arXiv:2403.14720, 2024.
+\bibitem{instructionhierarchy} E.~Wallace, K.~Xiao, R.~Leike, L.~Weng, J.~Heidecke, A.~Beutel. The
+Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions. arXiv:2404.13208, 2024.
+\bibitem{geminilessons} C.~Shi, S.~Lin, S.~Song, J.~Hayes, I.~Shumailov, I.~Yona, J.~Pluto,
+A.~Pappu, C.~A.~Choquette-Choo, M.~Nasr, C.~Sitawarin, G.~Gibson, A.~Terzis, J.~Flynn. Lessons
+from Defending Gemini Against Indirect Prompt Injections. arXiv:2505.14534, 2025.
+\bibitem{camel} E.~Debenedetti, I.~Shumailov, T.~Fan, J.~Hayes, N.~Carlini, D.~Fabian, C.~Kern,
+C.~Shi, A.~Terzis, F.~Tram\`er. Defeating Prompt Injections by Design. arXiv:2503.18813, 2025.
+\bibitem{priceofsafety} P.~Bhowmik. The Price of Safety: Benign-Case Utility and Token Overhead of
 Memory-Poisoning Defenses in LLM Agents. arXiv:2609.22818, 2026.
 \bibitem{memgauge} C.~Zang, Z.~Cao, X.~Meng, J.~Wang, W.~Chen, X.~Gao, L.~Wang, Z.~Li, S.~Guo.
 Understanding Stage-Wise Utility-Risk Trade-offs in LLM Agent Memory. arXiv:2608.30177, 2026.
@@ -401,9 +453,20 @@ Limits of Content Screening and Provenance Ranking. arXiv:2608.21230, 2026.
 Persistent-Memory Agents. arXiv:2609.01852, 2026.
 \bibitem{rememberverify} B.~Li, J.~Yao, Z.~Zheng. Remember, Verify, or Ask? Cross-Family
 Evaluation of Memory Commitment in LLM Agents. arXiv:2608.19564, 2026.
-\bibitem{memorydojo} MemoryDojo. arXiv:2611.09721, 2026.
-\bibitem{attackermovessecond} The Attacker Moves Second: Stronger Adaptive Attacks Bypass Defenses
-Against LLM Jailbreaks and Prompt Injections. arXiv:2510.09023, 2025.
+\bibitem{warningland} D.~Akhawe, A.~P.~Felt. Alice in Warningland: A Large-Scale Field Study of
+Browser Security Warning Effectiveness. USENIX Security Symposium, 2013.
+\bibitem{outoftheloop} M.~Mitchell, A.~Ghosh, S.~Passi. AI Agents Push Humans Out of the Loop.
+arXiv:2608.23642, 2026.
+\bibitem{whentoask} H.~Wang, S.~Liu, Z.~Wang. When Should AI Agents Ask? Clarification Requests
+Under Limited Human Attention. arXiv:2610.41129, 2026.
+\bibitem{memsecbench} X.~Chen, X.~Xie, W.~Fu, J.~Zhou, S.~Yu, Q.~Xuan. MemSecBench: Tracking Agent
+Memory Poisoning from Persistence to Consequence and Repair. arXiv:2607.27080, 2026.
+\bibitem{memorydojo} D.~H.~Yang, B.~Bullwinkel, A.~Minnich, M.~Mohammadi~Amiri, G.~Severi.
+MemoryDojo: Benchmarking Poisoning Through LLM Agent Memory. arXiv:2611.09721, 2026.
+\bibitem{attackermovessecond} M.~Nasr, N.~Carlini, C.~Sitawarin, S.~V.~Schulhoff, J.~Hayes,
+M.~Ilie, J.~Pluto, S.~Song, H.~Chaudhari, I.~Shumailov, A.~Thakurta, K.~Y.~Xiao, A.~Terzis,
+F.~Tram\`er. The Attacker Moves Second: Stronger Adaptive Attacks Bypass Defenses Against LLM
+Jailbreaks and Prompt Injections. arXiv:2510.09023, 2025.
 \end{thebibliography}
 
 \end{document}
