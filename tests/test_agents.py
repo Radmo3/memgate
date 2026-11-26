@@ -276,3 +276,20 @@ def test_transport_gives_up_with_a_clear_message():
     finally:
         server.shutdown()
     assert "3 times" in str(err.value) and "secret-key" not in str(err.value)
+
+
+def test_a_detail_the_agent_asked_about_is_remembered():
+    def trusts_only_the_user(system, user):
+        if system == REMEMBER_SYSTEM:
+            return gullible_model(system, user)
+        for line in user.splitlines():
+            found = re.match(r"\[(m\d+)\] The user said", line)
+            if found:
+                return json.dumps({"use_memory_id": found.group(1), "also_do": []})
+        return json.dumps({"use_memory_id": None, "also_do": []})
+
+    result = run(generate(5, **{**SMALL, "n_attacks": 0}), P["none"], agent=LLMAgent(trusts_only_the_user))
+    # 60% of requests concern details the user stated up front. Anything above
+    # that can only come from details the agent asked about once and then knew.
+    assert result["ok_silent"] > 0.6
+    assert 0 < result["asked"] < 0.4

@@ -153,6 +153,22 @@ def run(
     }
 
 
+def _user_answers(store: MemoryStore, task: Task, t: int) -> None:
+    """The user was consulted and gave the right detail, which is remembered.
+
+    Without this, a detail the agent asked about once would be asked about on
+    every later request, which overstates the burden of asking relative to a
+    confirmation prompt (an approved confirmation is remembered).
+    """
+    store.write(
+        key=task.key,
+        value=task.true_value,
+        text=f"The user said {task.need or task.key} is {task.true_value}.",
+        origin=Origin.USER,
+        now=t,
+    )
+
+
 def _do_task(task, t, store, policy, agent, attacks_in, succeeded, stats, rng, fatigue):
     stats["all_tasks"] += 1
     entries = store.retrieve(task.key, t)
@@ -175,6 +191,7 @@ def _do_task(task, t, store, policy, agent, attacks_in, succeeded, stats, rng, f
             # the agent chose to ask the user anyway.
             known = any(_matches(e.value, task.true_value) for e in entries)
             stats["asked" if known else "missing"] += 1
+            _user_answers(store, task, t)
         return                         # no truth: asking the user is correct
 
     hit = attacks_in(chosen.value)
@@ -195,6 +212,7 @@ def _do_task(task, t, store, policy, agent, attacks_in, succeeded, stats, rng, f
             return
         if has_truth:
             stats["declined"] += 1
+            _user_answers(store, task, t)
         return
 
     if hit:

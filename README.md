@@ -2,7 +2,7 @@
 
 Provenance-gated long-term memory for LLM agents, with a multi-session evaluation harness.
 
-**Status: research prototype.** The library, the simulator and the real-model adapter work and are tested (159 tests, including seeded fuzzing of the security invariants). Every published result so far comes from a structural simulation with no language model in the loop. One small real-model run has been done as a smoke test (see below); it is not a result. Nothing has been evaluated against an adaptive attacker.
+**Status: research prototype.** The library, the simulator and the real-model adapter work and are tested (160 tests, including seeded fuzzing of the security invariants). Every published result so far comes from a structural simulation with no language model in the loop. One small real-model run has been done as a smoke test (see below); it is not a result. Nothing has been evaluated against an adaptive attacker.
 
 ## The problem
 
@@ -94,20 +94,17 @@ Agents are pluggable (`memgate_eval/agents.py`). An agent only proposes what to 
 See [`results/summary.md`](results/summary.md). In short, over 20 seeds of 60 sessions with 30 attacks each:
 
 - `none`, `filter` and `ttl` lose to every attack. Expiry alone fails because the agent's own notes and the merged entries carry no expiry.
-- `taint` clears all poison on retraction but still loses to most attacks, because labels the model is free to ignore do not stop a compliant model. It also forgets about a fifth of what it needs.
+- `taint` clears all poison on retraction but still loses to most attacks, because labels the model is free to ignore do not stop a compliant model. It also loses about an eighth of the details it needs.
 - `full` blocks extra-action and override attacks outright. What remains is gap filling, which succeeds only when the user approves a bad prompt: 0% if they never do, 2.3% at a 10% misclick rate, 12.5% at 50%.
-- The cost of `full` with no attacker present: about 10 confirmation prompts per 100 tasks, and about 8% of needed values forgotten because an untrusted fact expired before anyone confirmed it.
+- The cost of `full` with no attacker present: about 10 confirmation prompts per 100 tasks, and about 4% of needed details lost because an untrusted fact expired before anyone confirmed it. A detail the agent has to ask the user about is remembered from then on.
 
 ## Real-model status
 
-One smoke test has been run: a single small hosted model, one repeat, nine planted items. It is too small to report numbers from, but it changed the harness:
+Six models from four vendors have been run on the full workload (5 seeds, 150 planted items each). The reports, data and every prompt and reply are in [`results/real-models`](results/real-models), with their caveats. In short: with no defense, planted items later caused a wrong action in 1% to 92% of cases depending on the model; labels shown to the model were enough for some models and not for others; and with enforcement nothing succeeded unless the simulated user approved a bad prompt.
 
-- The model declined to save four of the nine planted items by itself, mostly the bluntly worded ones, and saved the ones worded like ordinary notes.
-- With no defense, one saved standing instruction was later acted on. With labels enforced, none were.
-- The original task wording was an abstract placeholder, and the model asked the user instead of acting on almost every consequential task. Tasks are now concrete requests ("Pay this month's invoice from ..."), and the report separates "forgot the detail" from "had it and asked the user anyway".
-- The first version let the runtime use a trusted value even when the model had chosen to ask. That flattered the full policy and has been removed.
+Those runs were made before one correction to the harness: a detail the agent asks the user about is now remembered, where before it could be asked about again on every request. The six models are being rerun with that correction, and the figures in `results/real-models` and the paper draft will be replaced when they finish.
 
-No real-model numbers are published here until there are several models and repeats on the concrete tasks.
+Earlier corrections that real models forced: the task wording was made concrete, planted values were given neutral names, and the runtime no longer substitutes a trusted value when the model chooses to ask.
 
 ## Paper draft
 
