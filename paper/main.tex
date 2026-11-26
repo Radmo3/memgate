@@ -59,10 +59,12 @@ not, a label is decoration.
 We measure both on six current models with one workload and one memory runtime. This is a
 measurement paper. The defense mechanisms we implement are taken from prior work, chiefly
 origin-bound authority~\cite{tmanm} and confirmation gates~\cite{permit,sleeperchannels}; we claim
-no new defense. Our contributions are:
+no new defense. Most of the individual effects we report have precedents, which
+Section~\ref{sec:related} credits; what is new here is measuring them together, on one workload,
+across current models from four vendors. Our contributions are:
 
 \begin{itemize}
-\item A cross-vendor comparison of labels shown to the model against labels enforced by the
+\item A head-to-head comparison, on the same workload, of labels shown to the model against labels enforced by the
 runtime. Labels alone were nearly sufficient for four hosted models and clearly insufficient for
 an open-weight model and for one hosted model (Section~\ref{sec:labels}).
 \item A breakdown of what the enforced defense costs when no attacker is present, separating
@@ -78,6 +80,7 @@ model behind a chat-completions endpoint can be evaluated, with every prompt and
 \end{itemize}
 
 \section{Related work}
+\label{sec:related}
 
 \paragraph{Provenance-gated memory.} TMA-NM binds a memory item's authority to its origin at write
 time, propagates that through the agent's own summaries, and reports no successful attacks across
@@ -94,8 +97,15 @@ exploitable on several small open-weight models while the runtime gate held~\cit
 and Namiot distinguish provenance warnings placed in the model's context from gates enforced
 outside the model loop and argue that only the latter is load-bearing, without a multi-model
 measurement~\cite{sleeperchannels}. Our Labels and Enforced conditions correspond to that
-distinction. We add measurements on current hosted models, where the picture differs from the
-small open-weight models studied before, and a breakdown of the cost.
+distinction. MemLineage tracks lineage through derived entries with weighted attribution and
+enforces it at a gate outside the model; it shows that coarse taint, where everything retrieved
+taints the result, blocks benign actions that finer attribution keeps~\cite{memlineage}. Our
+taint is of the coarse kind. Closest to our Labels condition, Zhan et al.\ show for seven
+models that authority labels rendered in the prompt cut unauthorized actions from about half of
+cases to a few percent, without evaluating enforcement outside the model~\cite{authoritycollapse},
+while Kwon finds in a smaller study that source attribution and a passive ``unverified'' tag gave
+little or unreliable protection~\cite{manufacturedconfidence}. We put both conditions on one
+workload, add an open-weight model, and break down the cost.
 
 \paragraph{Marking untrusted content for the model.} Our Labels condition is a memory-specific
 case of an older idea. Spotlighting marks untrusted text so that the model can tell it from
@@ -111,21 +121,38 @@ MEMGAUGE studies utility--risk trade-offs across writing, management and retriev
 models, with provenance used to quarantine records at the system level rather than shown to the
 model~\cite{memgauge}. Karunanidhi shows that ranking by provenance can remove the evidence a
 question needs when that evidence is itself untrusted~\cite{utilityunderattack}; our ``detail
-lost'' and ``asked anyway'' columns are the action-side counterpart of that effect.
+lost'' and ``asked anyway'' columns are the action-side counterpart of that effect. Cerruti et
+al.\ report that filtering memory records by source cut unauthorized actions and also cut
+legitimate actions from 93\% to 53\%~\cite{eal}. Outside memory, FIDES enforces information-flow
+policies deterministically~\cite{fides}, and Kolluri et al.\ measure the cost of such policies as
+the number of human approvals a task needs~\cite{prudentia}; our confirmation counts are the
+memory-setting analogue.
 
 \paragraph{How models treat memory.} Hu and Ramachandran find that small open-weight models rely
 on stale stored facts almost always, and that provenance metadata helps larger models more than
 smaller ones~\cite{trustgap}. Li et al.\ compare how two Claude models and a Qwen model decide
 whether to persist, verify or ask, without provenance labels or planted content~\cite{rememberverify}.
-We observe related differences between vendors in an adversarial, multi-session setting.
+Pulipaka et al.\ report large differences between hosted models in whether a planted memory is
+written at all, with one Claude model explicitly refusing suspicious writes~\cite{sleepermemory},
+and Torres et al.\ find differences in activation across four models~\cite{ghostwriter}. Liu et
+al.\ show that models differ widely in when they abstain or ask instead of acting, outside the
+memory setting~\cite{agentabstain}. We observe related differences between vendors in an
+adversarial, multi-session setting.
 
 \paragraph{Asking the user.} Confirmation steps assume an attentive person. Field studies of
 security warnings found click-through rates that vary widely and can be high~\cite{warningland},
 Mitchell et al.\ argue that repeated approval requests from agents erode the scrutiny they rely
 on~\cite{outoftheloop}, and Wang et al.\ model when an agent should ask at all given limited human
-attention~\cite{whentoask}. We vary the simulated user's carelessness but do not study people.
+attention~\cite{whentoask}. Asking is also an attack surface: planted warnings can make agents
+withhold legitimate actions, and cautious prompting makes this worse~\cite{abstentionattack}.
+Kwon reports that an instruction to distrust memory stopped wrong decisions only by escalating
+every request~\cite{manufacturedconfidence}. We vary the simulated user's carelessness but do not
+study people.
 
-\paragraph{Benchmarks and attacks.} MPBench catalogues memory write channels and attack classes
+\paragraph{Benchmarks and attacks.} Lin et al.\ survey attacks and defenses across the memory
+lifecycle and identify rollback and long-horizon evaluation as gaps~\cite{survey}. MemPoison
+reports that down-weighting by source reliability has a small clean-task cost and leaves dormant,
+context-triggered corruption largely in place~\cite{mempoison}. MPBench catalogues memory write channels and attack classes
 for two agent harnesses and recommends write-path provenance tracking without testing
 it~\cite{mpbench}. MemSecBench follows planted memory from write to consequence to repair and
 finds that repair often removes benign memory along with the malicious entry~\cite{memsecbench};
@@ -251,7 +278,8 @@ were lost for those two models, against none for Sonnet, Gemini and Llama.
 Only two models were affected by extra-action items (Luna 30\%, Llama 96\%); the others saved no
 standing instruction that later executed. Claude Sonnet 5.5 returned an empty reply to 20
 documents, all of them planted extra-action notes; an empty reply is scored as saving nothing,
-and the harness did not record why the reply was empty.
+and the harness did not record why the reply was empty. Pulipaka et al.\ observed a Claude
+model explicitly refusing suspicious memory writes~\cite{sleepermemory}, which may be related.
 
 \begin{table}[t]\centering\small
 \TableBehaviour
@@ -286,7 +314,9 @@ time and so every such request reaches the user. Models that decline untrusted m
 generate no prompts to approve.
 
 Prior work on small open-weight models concluded that provenance cues visible to the model do not
-hold~\cite{ppmf,sleeperchannels}. Our Llama result agrees. The hosted models show that this is a
+hold~\cite{ppmf,sleeperchannels}, while Zhan et al.\ found that labels in the prompt worked well
+on the seven models they tested~\cite{authoritycollapse}. Our results reproduce both: the Llama result agrees
+with the first and the hosted models with the second. The hosted models show that this is a
 property of the model rather than of labels: three of them treated a visible label as binding for
 requests that act. A deployment cannot know in advance which kind of model it has, and a model
 update can change it, so the case for enforcement stands. But for the three label-respecting models
@@ -318,7 +348,9 @@ enforced defense was switched on. Three mechanisms account for it.
 \emph{The model asks.} Once Sonnet, Gemini and Haiku can see that a legitimate supplier detail is
 labelled untrusted, they decline to act on it and ask the user: on 22\%, 30\% and 21\% of
 requests respectively. For these models the runtime's confirmation prompt never fired, because
-the model never proposed an untrusted value for a request that acts.
+the model never proposed an untrusted value for a request that acts. This is the same pattern,
+at lower intensity, that Kwon saw when an explicit distrust instruction made a model escalate
+every request~\cite{manufacturedconfidence}.
 
 \emph{The runtime asks.} Llama never asked on its own, so the gate did the work, at about 10
 confirmation prompts per 100 requests; Terra produced 7 and Luna under 2. A confirmation is
@@ -344,7 +376,9 @@ Enforced for every model, by 1 to 12 points (for example 23\% against 11\% for S
 against 7\% for Llama). It is also a likely source of the residual override success in the Labels
 column, since with the trusted entry gone there is nothing for the model to prefer; we did not
 trace each case. Keeping trust
-levels apart during consolidation removed the effect.
+levels apart during consolidation removed the effect. Zhan et al.\ report the same failure in
+stronger form: labelling a consolidated memory with the least permissive label of any source cut
+task success to about 5\%~\cite{authoritycollapse}.
 
 \emph{Expiry is a blunt instrument.} It bounds how long a planted item can wait, and it removed
 legitimate outside facts at the rates given above. A confirmation that promotes a value to
@@ -383,7 +417,9 @@ deterministic. Four models were reached through an aggregator and two through th
 source is retracted. We do not measure what legitimate memory is removed with them. Our labels
 are assigned per session, so a legitimate fact noted in the same session as a planted document
 shares its source and would be retracted too; MemSecBench reports that such collateral loss is
-the main obstacle to repair~\cite{memsecbench}.
+the main obstacle to repair~\cite{memsecbench}. The same coarse, per-session taint also labels
+legitimate facts untrusted more often than attribution-based lineage would~\cite{memlineage},
+which inflates our cost figures by an amount we did not measure.
 \item \textbf{Our implementation only.} We did not run the released implementations of the
 defenses we cite. The Enforced condition is our own reading of those mechanisms.
 \item \textbf{Empty replies.} Twenty-one replies from the two Claude models were empty and are
@@ -467,6 +503,36 @@ MemoryDojo: Benchmarking Poisoning Through LLM Agent Memory. arXiv:2611.09721, 2
 M.~Ilie, J.~Pluto, S.~Song, H.~Chaudhari, I.~Shumailov, A.~Thakurta, K.~Y.~Xiao, A.~Terzis,
 F.~Tram\`er. The Attacker Moves Second: Stronger Adaptive Attacks Bypass Defenses Against LLM
 Jailbreaks and Prompt Injections. arXiv:2510.09023, 2025.
+\bibitem{memlineage} C.~Ouyang, R.~Hou. MemLineage: Lineage-Guided Enforcement for LLM Agent
+Memory. arXiv:2605.14421, 2026.
+\bibitem{authoritycollapse} Q.~Zhan, R.~Zhang, S.~Guo, L.~Zhao, Z.~Liu. When Memory Becomes
+Authority: Benchmarking Authority Collapse at the Memory Consolidation Boundary. arXiv:2608.01679,
+2026.
+\bibitem{manufacturedconfidence} A.~Kwon. Manufactured Confidence: How Memory Consolidation Turns
+Hearsay into Confident Facts. arXiv:2606.29279, 2026.
+\bibitem{eal} T.~Cerruti, M.~Okamoto, A.~K.~Erol. Agent Memory Is a Surface for Endogenous
+Authorization Laundering. arXiv:2609.01836, 2026.
+\bibitem{fides} M.~Costa, B.~K\"opf, A.~Kolluri, A.~Paverd, M.~Russinovich, A.~Salem, S.~Tople,
+L.~Wutschitz, S.~Zanella-B\'eguelin. Securing AI Agents with Information-Flow Control.
+arXiv:2505.23643, 2025.
+\bibitem{prudentia} A.~Kolluri, R.~Sharma, M.~Costa, B.~K\"opf, T.~Nie{\ss}en, M.~Russinovich,
+S.~Tople, S.~Zanella-B\'eguelin. Optimizing Agent Planning for Security and Autonomy.
+arXiv:2602.11416, 2026.
+\bibitem{sleepermemory} S.~Pulipaka, S.~Hlebik, L.~Raghav, S.~Abdelnabi, V.~Raina, I.~Sheth,
+M.~Fritz. Hidden in Memory: Sleeper Memory Poisoning in LLM Agents. arXiv:2605.15338, 2026.
+\bibitem{ghostwriter} G.~Torres, S.~Shrestha, S.~Misra. When Agents Remember Too Much: Memory
+Poisoning Attacks on Large Language Model Agents. arXiv:2607.06595, 2026.
+\bibitem{agentabstain} X.~Liu, Y.~E.~Zhang, V.~Kasprova, P.~Rabbani, P.~S.~Zahraei, T.~Zhang,
+A.~Ebrahimpour-Boroojeny, V.~Chandrasekaran. AgentAbstain: Do LLM Agents Know When Not to Act?
+arXiv:2607.10059, 2026.
+\bibitem{abstentionattack} C.~Xiao. When Safety Becomes an Attack Surface: Manipulating Abstention
+in Tool-Using AI Agents. arXiv:2611.14864, 2026.
+\bibitem{survey} Z.~Lin, X.~Hao, R.~Fu, S.~Cui, K.~Chen, C.~Li, Z.~Li, F.~Xiong. A Survey on
+Long-Term Memory Security in LLM Agents: Attacks, Defenses, and Governance Across the Memory
+Lifecycle. arXiv:2604.16548, 2026.
+\bibitem{mempoison} J.~Gao, K.~Xia, Y.~Zhang, X.~Hong, M.~Lin, X.~Wei, W.~Li, S.~Lu. MemPoison:
+Uncovering Persistent Memory Threats and Structural Blind Spots in LLM Agents. arXiv:2607.14651,
+2026.
 \end{thebibliography}
 
 \end{document}
