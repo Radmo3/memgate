@@ -1,6 +1,6 @@
 # Real-model runs
 
-Six models on the identical workload: 5 seeds, 60 sessions, 30 planted items per seed (150 per model), untrusted expiry 20 sessions, consolidation every 5 sessions. Run between 22 and 25 November 2026 with the code at commit `16c02c9` or its immediate predecessors, which differ only in retry, resume and launcher code, not in prompts or scoring.
+Six models on the identical workload: 5 seeds, 60 sessions, 30 planted items per seed (150 per model), untrusted expiry 20 sessions, consolidation every 5 sessions. Run between 22 and 25 November 2026 with the code at commit `1040c7b` or its immediate predecessors, which differ only in retry, resume and launcher code, not in prompts or scoring.
 
 | Folder | Model name sent to the endpoint | Endpoint |
 |---|---|---|
