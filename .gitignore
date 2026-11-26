@@ -5,3 +5,6 @@ __pycache__/
 .ruff_cache/
 .venv/
 results-llm*/
+paper/*.aux
+paper/*.log
+paper/*.out

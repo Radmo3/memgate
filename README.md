@@ -109,6 +109,10 @@ One smoke test has been run: a single small hosted model, one repeat, nine plant
 
 No real-model numbers are published here until there are several models and repeats on the concrete tasks.
 
+## Paper draft
+
+A draft write-up of the six-model runs is in [`paper/main.pdf`](paper/main.pdf). Every table and number in it is generated from `results/real-models` by `python paper/make_tables.py`; rebuild the PDF with `pdflatex main.tex` in `paper/`.
+
 ## Limitations
 
 - **Simulation only, so far.** No language model has been run. The baselines' 100% figures follow from the compliant-agent assumption and should be read as "nothing in this design stops it", not as a measured rate.

@@ -39,3 +39,6 @@ packages = ["memgate", "memgate_eval"]
 warn_unused_ignores = true
 warn_redundant_casts = true
 check_untyped_defs = true
+
+[tool.ruff.lint.per-file-ignores]
+"paper/*" = ["E501"]   # the table generator holds long LaTeX rows

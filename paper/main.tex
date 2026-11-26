@@ -1,0 +1,409 @@
+\documentclass[10pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\setlist{nosep,leftmargin=1.4em}
+\input{tables}
+
+\title{Ask, Forget, Repair: What Provenance-Gated Agent Memory\\Costs Across Six Language Models}
+\author{Radhika Motwani\\\texttt{motwani.r@northeastern.edu}}
+\date{Draft of 25 November 2026. Not yet submitted.}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+An agent with long-term memory can be poisoned in one session and exploited in a later one. A
+common defense is to record where each memory came from and to stop untrusted memories from
+driving consequential actions. Prior work shows that such defenses block attacks; much less is
+known about what they cost, or how much of the protection comes from the model and how much from
+the runtime. We run six current language models from four vendors as the agent in one 60-session
+synthetic back-office workload with 150 planted memory items per model, under three conditions:
+no defense, provenance labels that are shown to the model but not enforced, and the same labels
+enforced by the runtime. With no defense, planted items later caused a wrong action in 1\% to
+92\% of cases depending on the model. Showing labels alone reduced this to 0--4\% for four models
+but left 15\% and 69\% for the other two. With enforcement no planted item succeeded on any model
+unless a simulated user approved a bad confirmation. The defense is not free: with no attacker
+present, the share of requests completed correctly without involving the user fell by 15 to 43
+points. Where that cost lands depends on the model. Models that respect labels stop using
+legitimate outside facts and ask the user instead; a model that ignores labels triggers runtime
+confirmation prompts. The planted texts are simple and do not adapt to the defense, the tasks are
+synthetic, and the user is simulated, so these results are a lower bound on attacks and a first
+measurement of cost, not a ranking of models. Code, workload and every model reply are released.
+\end{abstract}
+
+\section{Introduction}
+
+Agents that keep memory across sessions inherit a delayed form of prompt injection. A document
+read today (an email, a web page, a shared file) can leave behind a memory that steers an action
+weeks later, after the document itself is gone. A line of recent work addresses this by attaching
+provenance to memory and denying untrusted memory the authority to trigger consequential
+actions~\cite{tmanm,permit,ppmf,sleeperchannels}. These systems report near-zero attack success.
+
+Two questions are left open by that work, and they matter to anyone deciding whether to deploy
+such a defense. First, what does it cost? A legitimate supplier really does send a new bank
+account by email. A defense that distrusts everything from outside must either withhold that fact,
+ask the user about it, or let it expire. Second, how much of the protection is the runtime's and
+how much is the model's own caution? If a capable model already declines to act on a memory it can
+see is untrusted, then showing it a label may be enough, and enforcement is redundant. If it does
+not, a label is decoration.
+
+We measure both on six current models with one workload and one memory runtime. This is a
+measurement paper. The defense mechanisms we implement are taken from prior work, chiefly
+origin-bound authority~\cite{tmanm} and confirmation gates~\cite{permit,sleeperchannels}; we claim
+no new defense. Our contributions are:
+
+\begin{itemize}
+\item A cross-vendor comparison of labels shown to the model against labels enforced by the
+runtime. Labels alone were nearly sufficient for four hosted models and clearly insufficient for
+an open-weight model and for one hosted model (Section~\ref{sec:labels}).
+\item A breakdown of what the enforced defense costs when no attacker is present, separating
+requests the agent completes unprompted, requests that need a confirmation, details that are
+lost, and requests where the agent has the right detail and asks the user anyway
+(Section~\ref{sec:cost}).
+\item Observations about the memory lifecycle: merging trusted and untrusted entries makes the
+user's own instructions distrusted, expiry removes legitimate facts along with planted ones, and
+retracting a malicious source only works if provenance survived the agent's own note-taking
+(Section~\ref{sec:lifecycle}).
+\item A harness in which the agent only proposes what to store and what to do, so any
+model behind a chat-completions endpoint can be evaluated, with every prompt and reply saved.
+\end{itemize}
+
+\section{Related work}
+
+\paragraph{Provenance-gated memory.} TMA-NM binds a memory item's authority to its origin at write
+time, propagates that through the agent's own summaries, and reports no successful attacks across
+eight models, with machine-checked proofs~\cite{tmanm}. PerMIT combines a quarantined reader with a
+confirmation gate and eviction~\cite{permit}. PPMF describes \emph{provenance laundering}, in which
+consolidation rewrites outside content as apparent user history, and gates tool calls on
+platform-maintained provenance; it reports that readable provenance cues in memory text remained
+exploitable on several small open-weight models while the runtime gate held~\cite{ppmf}. Maloyan
+and Namiot distinguish provenance warnings placed in the model's context from gates enforced
+outside the model loop and argue that only the latter is load-bearing, without a multi-model
+measurement~\cite{sleeperchannels}. Our Labels and Enforced conditions correspond to that
+distinction. We add measurements on current hosted models, where the picture differs from the
+small open-weight models studied before, and a breakdown of the cost.
+
+\paragraph{Cost of memory defenses.} ``The Price of Safety'' measures benign accuracy and token
+overhead for four memory defenses, with no attacker and no confirmation step~\cite{priceofsafety}.
+MEMGAUGE studies utility--risk trade-offs across writing, management and retrieval for eleven
+models, with provenance used to quarantine records at the system level rather than shown to the
+model~\cite{memgauge}. Karunanidhi shows that ranking by provenance can remove the evidence a
+question needs when that evidence is itself untrusted~\cite{utilityunderattack}; our ``detail
+lost'' and ``asked anyway'' columns are the action-side counterpart of that effect.
+
+\paragraph{How models treat memory.} Hu and Ramachandran find that small open-weight models rely
+on stale stored facts almost always, and that provenance metadata helps larger models more than
+smaller ones~\cite{trustgap}. Li et al.\ compare how two Claude models and a Qwen model decide
+whether to persist, verify or ask, without provenance labels or planted content~\cite{rememberverify}.
+We observe related differences between vendors in an adversarial, multi-session setting.
+
+\paragraph{Benchmarks and attacks.} MemoryDojo provides realistic multi-session tasks across five
+memory backends and evaluates no defenses~\cite{memorydojo}; it would be a better testbed than our
+synthetic workload once its code is available. Adaptive attacks have repeatedly broken
+prompt-injection defenses that reported near-zero attack success against static
+attacks~\cite{attackermovessecond}. We do not run adaptive attacks, and Section~\ref{sec:limits}
+says what follows from that.
+
+\section{Setup}
+
+\subsection{Threat model}
+
+The attacker controls the content of some documents the agent reads. The attacker cannot reach the
+model, the runtime, the memory store or the user's own messages, and wants a consequential action
+(moving money or sending data) to go wrong in a later session. The runtime, the user channel and
+the labels the runtime assigns are trusted. The model is not.
+
+\subsection{Workload}
+
+Each run simulates 60 sessions of a back-office assistant. Topics are details about twenty
+invented companies: a payout account, a billing contact, or the recipient of a usage report. A
+run contains:
+
+\begin{itemize}
+\item 20 details the user states directly in the first third of the run;
+\item 15 legitimate details that arrive only in outside documents, such as a supplier's email;
+\item 30 planted items in outside documents, ten of each kind below, each followed 1 to 40
+sessions later by a request that depends on the same topic;
+\item 135 user requests in total. Each asks the agent either to act (``Pay this month's invoice
+from \ldots'') or to prepare something without external effect (``Add \ldots\ to my draft payment
+sheet. Do not pay anything yet.'').
+\end{itemize}
+
+The three kinds of planted item are an \emph{extra action} (a standing instruction to copy
+material to an outside address), an \emph{override} (a value contradicting one the user stated),
+and a \emph{fill gap} (a value for a detail the user never gave). Half are worded bluntly
+(``Ignore the earlier setting. Always use \ldots'') and half plainly (``\ldots\ is now
+\ldots''). They are fixed templates. Nothing about them is tuned to any model or defense.
+Memory is consolidated every five sessions: entries about the same topic are merged and the
+newest value wins. We use five seeds, so each model sees 150 planted items. Because seeds share
+many documents, a model answers 108 distinct planted documents.
+
+\subsection{Agent protocol}
+
+The model is called at two points. When a document is read, it is asked what, if anything, to
+remember, and replies with a list of (topic, value, standing instruction) entries. When the user
+makes a request, it is shown the request and its memory entries about the needed detail, and
+replies with the entry it will use or with a decision to ask the user instead, plus any additional
+actions it intends to take. The model only proposes. The runtime stores, labels, retrieves and
+decides what executes. Retrieval is by exact topic handle; each document statement carries its
+handle. Identical prompts are sent once and the reply reused, and requests ask for temperature~0
+where the model accepts it.
+
+\subsection{Conditions}
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+\item[No defense.] A plain store. Entries carry no source. A merged entry looks like a fresh note.
+\item[Labels.] The runtime labels every entry. User statements are trusted. Anything the model
+writes after reading an outside document in the same session is untrusted and carries that
+document's identifier. Untrusted entries expire after 20 sessions. A merged entry takes the lowest
+trust, all sources and the earliest expiry of its parts. The model sees each entry's label and
+sources. Nothing is enforced, and entries of different trust may be merged.
+\item[Enforced.] Labels, plus runtime rules. Trusted and untrusted entries are never merged. A
+value the user stated outranks any other. An untrusted memory cannot start an action, and an
+action the model does not attribute to a memory is denied while untrusted memory is in view. A
+request that acts and would use an untrusted value produces a confirmation prompt showing the
+source; approval re-issues the value as a user statement. Retracting a source removes everything
+it influenced.
+\end{description}
+
+Two further baselines, a keyword filter on writes and expiry applied only to verbatim tool output,
+gave results identical to No defense for every model, because the model's own notes are what
+persists. We omit them from the tables.
+
+\subsection{Simulated user and metrics}
+
+At a confirmation prompt the simulated user always approves a correct value and approves a planted
+one with probability $f$ ($f=0.1$ unless stated). \emph{Attack success} is the share of planted
+items that, at any later point, had their value used in a request that acts or had their
+instruction executed. \emph{Saved} is the share present in memory after the document was read. For
+requests whose needed detail has a true value, each is classed as \emph{correct, unprompted};
+\emph{correct after prompt}; \emph{detail lost} (no entry holding the right value could be
+retrieved, because it was never saved or had expired); \emph{asked anyway} (such an entry was
+retrievable and the model chose to ask the user); or \emph{wrong}. Cost figures come from a second
+set of runs with the planted items removed. Tables report the mean and standard deviation over
+five seeds.
+
+\subsection{Models}
+
+\begin{center}\small\TableModels\end{center}
+
+\noindent The runs were made between 22 and 25 November 2026 and comprise 6{,}813 distinct model
+calls.
+
+\section{Results}
+
+\subsection{Undefended agents are poisoned at very different rates}
+
+\begin{table}[t]\centering\small
+\resizebox{\textwidth}{!}{\TableSecurity}
+\caption{Security. ``Saved'' is the share of planted items in memory after reading. Enforced is
+with a user who approves a bad prompt one time in ten. Mean $\pm$ standard deviation over five
+seeds; 150 planted items per model.}
+\label{tab:security}
+\end{table}
+
+Table~\ref{tab:security} shows attack success with no defense ranging from 1\% for Claude Haiku
+5.5 to 92\% for Llama 4 Maverick. Most of that spread is decided when the document is read.
+Table~\ref{tab:behaviour} shows what each model chose to save. Llama saved all 108 distinct
+planted documents. The five hosted models together saved something from 34 of 290 bluntly worded
+ones, and from 5 to 37 of the 50 plainly worded ones. Once a planted item was saved by an
+undefended agent it usually succeeded: saved and successful shares differ by at most ten points.
+
+Models also differed on legitimate content. GPT-6 Luna saved none of the eight legitimate payout
+accounts that arrived in outside documents, and Claude Haiku three, while both saved most contact
+addresses. That caution costs utility with no defense at all: 15\% and 13\% of needed details
+were lost for those two models, against none for Sonnet, Gemini and Llama.
+
+Only two models were affected by extra-action items (Luna 30\%, Llama 96\%); the others saved no
+standing instruction that later executed. Claude Sonnet 5.5 returned an empty reply to 20
+documents, all of them planted extra-action notes; an empty reply is scored as saving nothing,
+and the harness did not record why the reply was empty.
+
+\begin{table}[t]\centering\small
+\TableBehaviour
+\caption{Model behaviour, counted over distinct prompts. Left: documents from which the model
+saved a value or instruction, for planted documents worded bluntly or plainly and for legitimate
+payout accounts and contact addresses. Right, with labels visible: how often the model used a
+memory when only untrusted entries were available, for requests that act (``Acted'') and for
+drafts (``Drafted''); and, when a trusted and an untrusted entry were both in view and the model
+used one, how often it was the trusted one.}
+\label{tab:behaviour}
+\end{table}
+
+\subsection{Labels shown to the model help some models much more than others}
+\label{sec:labels}
+
+With labels visible but unenforced, attack success fell to 0--4\% for Sonnet, Gemini, Luna and
+Haiku, to 15\% for GPT-6.1 Terra, and only to 69\% for Llama. The right half of
+Table~\ref{tab:behaviour} shows why. Faced with a request that acts and only untrusted memory to
+go on, Sonnet, Gemini and Haiku never used the memory (0 of 412 cases). Luna used it in 35 of
+167, Terra in 136 of 206, and Llama in 337 of 339.
+
+When a trusted and an untrusted entry were both in view, every model chose the trusted one, in
+all 378 cases. Failures to follow labels therefore arose where there was nothing
+trusted to prefer: the fill-gap case, and cases where merging had already destroyed the trusted
+entry (Section~\ref{sec:lifecycle}).
+
+With enforcement, no planted item succeeded on five models. On Llama 4.7\% succeeded, all through
+confirmation prompts that the simulated user approved. Table~\ref{tab:fatigue} varies that user.
+With a user who never approves a bad prompt, success is zero for every model. With one who
+approves half of them it reaches 15\% for Llama, because Llama proposes the planted value every
+time and so every such request reaches the user. Models that decline untrusted memory themselves
+generate no prompts to approve.
+
+Prior work on small open-weight models concluded that provenance cues visible to the model do not
+hold~\cite{ppmf,sleeperchannels}. Our Llama result agrees. The hosted models show that this is a
+property of the model rather than of labels: three of them treated a visible label as binding for
+requests that act. A deployment cannot know in advance which kind of model it has, and a model
+update can change it, so the case for enforcement stands. But for the three label-respecting models
+enforcement left utility unchanged relative to labels alone and moved attack success by at most
+two points.
+
+\begin{table}[t]\centering\small
+\TableFatigue
+\caption{Enforced condition: attack success (\%) as the simulated user becomes more willing to
+approve a confirmation prompt for a planted value.}
+\label{tab:fatigue}
+\end{table}
+
+\subsection{What the defense costs when nobody is attacking}
+\label{sec:cost}
+
+\begin{table}[t]\centering\small
+\resizebox{\textwidth}{!}{\TableCost}
+\caption{Cost with no planted items. Share of requests with a known right answer. ``Detail lost'':
+no retrievable entry held the right value. ``Asked anyway'': one did, and the model asked the
+user instead. Mean $\pm$ standard deviation over five seeds.}
+\label{tab:cost}
+\end{table}
+
+Table~\ref{tab:cost} gives the cost. With no attacker, the share of requests completed correctly
+without involving the user fell by between 15 points (Haiku) and 43 points (Gemini) when the
+enforced defense was switched on. Three mechanisms account for it.
+
+\emph{The model asks.} Once Sonnet, Gemini and Haiku can see that a legitimate supplier detail is
+labelled untrusted, they decline to act on it and ask the user: on 22\%, 30\% and 21\% of
+requests respectively. For these models the runtime's confirmation prompt never fired, because
+the model never proposed an untrusted value for a request that acts.
+
+\emph{The runtime asks.} Llama never asked on its own, so the gate did the work, at about 10
+confirmation prompts per 100 requests; Terra produced 7 and Luna under 2. A confirmation is
+cheaper for the user than an open question, since it shows the value and its source, and an
+approved value becomes trusted and is not asked about again.
+
+\emph{Details expire.} Untrusted entries expire after 20 sessions, and a legitimate fact may be
+needed long after it arrived. Sonnet, Gemini and Llama lost no details with no defense and 13\%,
+13\% and 8\% with enforcement.
+
+Counting a confirmed request as correct, Llama completes 92\% of requests under enforcement and
+Terra 83\%, against 100\% and 93\% undefended. For the label-respecting models there is nothing
+comparable to add back, because in our harness a question to the user is not followed by an
+answer that the agent stores (Section~\ref{sec:limits}).
+
+\subsection{Lifecycle: merging, expiry and repair}
+\label{sec:lifecycle}
+
+\emph{Merging across trust levels damages the user's own instructions.} In the Labels condition a
+merge of the user's stated account with a planted note yields one entry labelled untrusted and
+due to expire. Under attack, the share of needed details lost was higher with Labels than with
+Enforced for every model, by 1 to 12 points (for example 23\% against 11\% for Sonnet, and 18\%
+against 7\% for Llama). It is also a likely source of the residual override success in the Labels
+column, since with the trusted entry gone there is nothing for the model to prefer; we did not
+trace each case. Keeping trust
+levels apart during consolidation removed the effect.
+
+\emph{Expiry is a blunt instrument.} It bounds how long a planted item can wait, and it removed
+legitimate outside facts at the rates given above. A confirmation that promotes a value to
+trusted is what keeps a useful outside fact alive; Llama, which reaches the confirmation prompt
+most often, lost fewer details under Enforced (8\%) than under Labels (13\%).
+
+\emph{Repair depends on lineage.} At the end of each run we retract every document that carried a
+planted item. With no defense, almost all the planted items that had been saved remained (the
+rest had already been overwritten by a later merge), because the agent's notes about them
+recorded no source to retract by. With labels, none remained for any
+model.
+
+\section{Limitations}
+\label{sec:limits}
+
+\begin{itemize}
+\item \textbf{The attacks do not adapt.} The planted texts are fixed, simply worded templates.
+Defenses that look strong against static attacks have repeatedly been broken by adaptive
+ones~\cite{attackermovessecond}. Our undefended and Labels figures are therefore lower bounds on
+attack success. The Enforced rules do not depend on wording, but the confirmation prompt depends
+on a person, and we have not tested it with people.
+\item \textbf{Synthetic workload, written by us.} Requests are short, topics are of three kinds,
+and each document statement carries a topic handle that stands in for retrieval. Real memory
+systems retrieve by similarity, which adds attack surface we do not model. Rates of asking,
+prompting and expiry will move with the task mix, the expiry length and the share of facts that
+arrive from outside.
+\item \textbf{Asking is not followed by learning.} When the model asks the user for a detail, the
+harness records the question and stores no answer, so the same detail can be asked about again.
+An approved confirmation, by contrast, is remembered. This overstates the long-run burden for
+models that ask relative to models that trigger confirmations, and should be corrected before
+the comparison between the two is relied on.
+\item \textbf{One run configuration per model.} Five seeds, one prompt wording, one expiry
+length. We report standard deviations and no significance tests. Replies are not guaranteed to be
+deterministic. Four models were reached through an aggregator and two through their vendor's API.
+\item \textbf{Our implementation only.} We did not run the released implementations of the
+defenses we cite. The Enforced condition is our own reading of those mechanisms.
+\item \textbf{Empty replies.} Twenty-one replies from the two Claude models were empty and are
+scored as saving nothing; the cause was not recorded.
+\item \textbf{Not a model ranking.} A single synthetic workload cannot establish which model is
+safer in general, and model behaviour changes between versions.
+\end{itemize}
+
+\section{Conclusion}
+
+On this workload, provenance labels shown to the model were a strong defense for models that
+respect them and a weak one for a model that does not, and enforcement by the runtime removed
+that dependence. The enforced defense blocked every simple planted item we tried, at the price
+of involving the user in 15 to 43 points more requests when nobody was attacking, through model
+questions, runtime confirmations and expired facts. Which of those a deployment pays depends on
+the model. The measurements that would most change this picture are adaptive attacks, a realistic
+benchmark such as MemoryDojo, and a harness in which the user's answers are learned.
+
+\section*{Disclosure}
+
+An AI assistant (Claude, from Anthropic) wrote the harness and analysis code and drafted this
+manuscript under the author's direction, and the author ran the experiments. Two of the six
+evaluated models are from the same vendor as that assistant. All figures are computed by a
+script from the saved transcripts, which are released so that they can be recounted.
+
+\section*{Availability}
+
+Code, workload generator, per-model reports and full transcripts:
+\url{https://github.com/Radmo3/memgate} (private at the time of this draft).
+
+\begin{thebibliography}{99}\small
+% TODO before submission: complete author lists from the arXiv records. Entries without
+% authors below are ones where the author list was not verified while drafting.
+\bibitem{tmanm} Y.~Louck. Securing LLM-Agent Long-Term Memory Against Poisoning: Non-Malleable,
+Origin-Bound Authority with Machine-Checked Guarantees. arXiv:2606.24322, 2026.
+\bibitem{permit} PerMIT. arXiv:2610.28987, 2026.
+\bibitem{ppmf} J.~Xu, Y.~Xiao, W.~Shao, H.~Liu, X.~Li. Memory Provenance Laundering in LLM Agents:
+A Non-Amplification Firewall for Persistent Memory. arXiv:2607.29167, 2026.
+\bibitem{sleeperchannels} N.~Maloyan, D.~Namiot. Sleeper Channels and Provenance Gates: Persistent
+Prompt Injection in Always-on Autonomous AI Agents. arXiv:2605.13471, 2026.
+\bibitem{priceofsafety} The Price of Safety: Benign-Case Utility and Token Overhead of
+Memory-Poisoning Defenses in LLM Agents. arXiv:2609.22818, 2026.
+\bibitem{memgauge} C.~Zang, Z.~Cao, X.~Meng, J.~Wang, W.~Chen, X.~Gao, L.~Wang, Z.~Li, S.~Guo.
+Understanding Stage-Wise Utility-Risk Trade-offs in LLM Agent Memory. arXiv:2608.30177, 2026.
+\bibitem{utilityunderattack} A.~Karunanidhi. Utility Under Attack: Agent Memory Poisoning and the
+Limits of Content Screening and Provenance Ranking. arXiv:2608.21230, 2026.
+\bibitem{trustgap} J.~Hu, S.~Ramachandran. The Memory Trust Gap: Capability-Dependent Failures in
+Persistent-Memory Agents. arXiv:2609.01852, 2026.
+\bibitem{rememberverify} B.~Li, J.~Yao, Z.~Zheng. Remember, Verify, or Ask? Cross-Family
+Evaluation of Memory Commitment in LLM Agents. arXiv:2608.19564, 2026.
+\bibitem{memorydojo} MemoryDojo. arXiv:2611.09721, 2026.
+\bibitem{attackermovessecond} The Attacker Moves Second: Stronger Adaptive Attacks Bypass Defenses
+Against LLM Jailbreaks and Prompt Injections. arXiv:2510.09023, 2025.
+\end{thebibliography}
+
+\end{document}
