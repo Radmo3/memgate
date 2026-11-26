@@ -2,7 +2,7 @@
 
 Provenance-gated long-term memory for LLM agents, with a multi-session evaluation harness.
 
-**Status: research prototype.** The library, the simulator and the real-model adapter work and are tested (160 tests, including seeded fuzzing of the security invariants). Every published result so far comes from a structural simulation with no language model in the loop. One small real-model run has been done as a smoke test (see below); it is not a result. Nothing has been evaluated against an adaptive attacker.
+**Status: research prototype.** The library, the simulator and the real-model adapter work and are tested (163 tests, including seeded fuzzing of the security invariants). Results come from a structural simulation with no language model in the loop, and from six real models on a synthetic workload (see below). Nothing has been evaluated against an adaptive attacker.
 
 ## The problem
 
@@ -100,11 +100,17 @@ See [`results/summary.md`](results/summary.md). In short, over 20 seeds of 60 se
 
 ## Real-model status
 
-Six models from four vendors have been run on the full workload (5 seeds, 150 planted items each). The reports, data and every prompt and reply are in [`results/real-models`](results/real-models), with their caveats. In short: with no defense, planted items later caused a wrong action in 1% to 92% of cases depending on the model; labels shown to the model were enough for some models and not for others; and with enforcement nothing succeeded unless the simulated user approved a bad prompt.
+Six models from four vendors have been run on the full workload (5 seeds, 150 planted items each). The reports, data and every prompt and reply are in [`results/real-models`](results/real-models), with their caveats. In short:
 
-Those runs were made before one correction to the harness: a detail the agent asks the user about is now remembered, where before it could be asked about again on every request. The six models are being rerun with that correction, and the figures in `results/real-models` and the paper draft will be replaced when they finish.
+- With no defense, planted items later caused a wrong action in 2% to 93% of cases depending on the model.
+- Labels shown to the model, with nothing enforced, cut that to 0-1% for four models and left 15% and 67% for the other two.
+- With enforcement nothing succeeded unless the simulated user approved a bad prompt.
+- With no attacker, enforcement left 86% of requests completed without involving the user, for every model. Each legitimate outside fact cost one exchange with the user and was then remembered. Careful models ask; a model that ignores labels triggers confirmation prompts.
+- Labels without enforcement cost the careful models 10 to 15 points more, because the user's answers were merged with untrusted entries and expired.
 
-Earlier corrections that real models forced: the task wording was made concrete, planted values were given neutral names, and the runtime no longer substitutes a trusted value when the model chooses to ask.
+Anyone can recompute these figures from the saved replies, with no key and no model: `python -m memgate_eval.replay results/real-models/*/`.
+
+Corrections that real models forced along the way: the task wording was made concrete, planted values were given neutral names, the runtime no longer substitutes a trusted value when the model chooses to ask, and a detail the agent asks the user about is now remembered. The published runs were all made after the last of these.
 
 ## Paper draft
 
@@ -112,7 +118,7 @@ A draft write-up of the six-model runs is in [`paper/main.pdf`](paper/main.pdf).
 
 ## Limitations
 
-- **Simulation only, so far.** No language model has been run. The baselines' 100% figures follow from the compliant-agent assumption and should be read as "nothing in this design stops it", not as a measured rate.
+- **The simulation is a worst case, not a measurement.** In `results/summary.md` the baselines' 100% figures follow from the compliant-agent assumption and should be read as "nothing in this design stops it". Measured rates for real models are in `results/real-models`.
 - **No adaptive attacker.** The test payloads are trivial canaries. The label-based rules do not depend on wording, but the confirmation prompt does depend on a human, and that has not been tested with people.
 - **Exact-key retrieval.** Real memory backends retrieve by embedding similarity, which adds attack surface this harness does not model.
 - **Synthetic workload.** The tasks are short back-office requests about invented companies. Session counts, task mix and the share of consequential actions are assumptions, and the forgetting and prompt rates will move with them. Each document statement carries a topic handle, which stands in for retrieval.
@@ -120,10 +126,9 @@ A draft write-up of the six-model runs is in [`paper/main.pdf`](paper/main.pdf).
 
 ## Next steps
 
-1. Run `--agent llm` on open-weight and API models and publish the numbers, whatever they show.
-2. Run on MemoryDojo (arXiv 2611.09721) once its code is released, and add adapters for the other public benchmarks (Trojan Hippo Bench, MemSecBench, WhisperBench, MEM-INV-Bench).
-3. Run the same benchmarks against the closest published defenses for a like-for-like comparison.
-4. Sweep expiry length and consolidation interval to map the security and forgetting trade-off.
+1. Run on MemoryDojo (arXiv 2611.09721) once its code is released, and add adapters for the other public benchmarks (Trojan Hippo Bench, MemSecBench, WhisperBench, MEM-INV-Bench).
+2. Run the same benchmarks against the closest published defenses for a like-for-like comparison.
+3. Sweep expiry length and consolidation interval to map the security and forgetting trade-off.
 
 ## Related work
 

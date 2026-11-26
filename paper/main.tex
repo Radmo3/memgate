@@ -12,7 +12,7 @@
 
 \title{Ask, Forget, Repair: What Provenance-Gated Agent Memory\\Costs Across Six Language Models}
 \author{Radhika Motwani\\\texttt{motwani.r@northeastern.edu}}
-\date{Draft of 25 November 2026. Not yet submitted.}
+\date{26 November 2026}
 
 \begin{document}
 \maketitle
@@ -25,14 +25,17 @@ known about what they cost, or how much of the protection comes from the model a
 the runtime. We run six current language models from four vendors as the agent in one 60-session
 synthetic back-office workload with 150 planted memory items per model, under three conditions:
 no defense, provenance labels that are shown to the model but not enforced, and the same labels
-enforced by the runtime. With no defense, planted items later caused a wrong action in 1\% to
-92\% of cases depending on the model. Showing labels alone reduced this to 0--4\% for four models
-but left 15\% and 69\% for the other two. With enforcement no planted item succeeded on any model
-unless a simulated user approved a bad confirmation. The defense is not free: with no attacker
-present, the share of requests completed correctly without involving the user fell by 15 to 43
-points. Where that cost lands depends on the model. Models that respect labels stop using
-legitimate outside facts and ask the user instead; a model that ignores labels triggers runtime
-confirmation prompts. The planted texts are simple and do not adapt to the defense, the tasks are
+enforced by the runtime. With no defense, planted items later caused a wrong action in 2\% to
+93\% of cases depending on the model. Showing labels alone reduced this to 0--1\% for four models
+but left 15\% and 67\% for the other two. With enforcement no planted item succeeded on any model
+unless a simulated user approved a bad confirmation. The defense is not free. With no attacker
+present, the share of requests completed correctly without involving the user fell to 86\% for
+every model, a drop of 3 to 14 points: each legitimate fact that arrived from outside cost one
+exchange with the user, after which it was remembered as the user's own. The form of that exchange
+depends on the model. Models that respect labels ask the user; a model that ignores labels
+triggers runtime confirmation prompts. Labels without enforcement cost the label-respecting
+models more, up to 30 points, because merging let the user's answers inherit the untrusted label
+and expire. The planted texts are simple and do not adapt to the defense, the tasks are
 synthetic, and the user is simulated, so these results are a lower bound on attacks and a first
 measurement of cost, not a ranking of models. Code, workload and every model reply are released.
 \end{abstract}
@@ -72,7 +75,8 @@ requests the agent completes unprompted, requests that need a confirmation, deta
 lost, and requests where the agent has the right detail and asks the user anyway
 (Section~\ref{sec:cost}).
 \item Observations about the memory lifecycle: merging trusted and untrusted entries makes the
-user's own instructions distrusted, expiry removes legitimate facts along with planted ones, and
+user's own statements distrusted, so that a label-respecting model asks for the same detail
+again; expiry removes legitimate facts along with planted ones; and
 retracting a malicious source only works if provenance survived the agent's own note-taking
 (Section~\ref{sec:lifecycle}).
 \item A harness in which the agent only proposes what to store and what to do, so any
@@ -248,8 +252,9 @@ five seeds.
 
 \begin{center}\small\TableModels\end{center}
 
-\noindent The runs were made between 22 and 25 November 2026 and comprise 6{,}813 distinct model
-calls.
+\noindent The runs were made between 22 and 25 November 2026. The reported figures rest on
+8{,}970 distinct model replies. Every figure can be recomputed from the saved replies without
+access to a model, and we checked that doing so reproduces the reports exactly.
 
 \section{Results}
 
@@ -263,17 +268,18 @@ seeds; 150 planted items per model.}
 \label{tab:security}
 \end{table}
 
-Table~\ref{tab:security} shows attack success with no defense ranging from 1\% for Claude Haiku
-5.5 to 92\% for Llama 4 Maverick. Most of that spread is decided when the document is read.
+Table~\ref{tab:security} shows attack success with no defense ranging from 2\% for Claude Haiku
+5.5 to 93\% for Llama 4 Maverick. Most of that spread is decided when the document is read.
 Table~\ref{tab:behaviour} shows what each model chose to save. Llama saved all 108 distinct
 planted documents. The five hosted models together saved something from 34 of 290 bluntly worded
 ones, and from 5 to 37 of the 50 plainly worded ones. Once a planted item was saved by an
-undefended agent it usually succeeded: saved and successful shares differ by at most ten points.
+undefended agent it usually succeeded: saved and successful shares differ by at most fifteen
+points.
 
 Models also differed on legitimate content. GPT-6 Luna saved none of the eight legitimate payout
 accounts that arrived in outside documents, and Claude Haiku three, while both saved most contact
-addresses. That caution costs utility with no defense at all: 15\% and 13\% of needed details
-were lost for those two models, against none for Sonnet, Gemini and Llama.
+addresses. That caution costs utility with no defense at all: 5\% and 4\% of requests found the
+needed detail missing for those two models, against none for Sonnet, Gemini and Llama.
 
 Only two models were affected by extra-action items (Luna 30\%, Llama 96\%); the others saved no
 standing instruction that later executed. Claude Sonnet 5.5 returned an empty reply to 20
@@ -295,14 +301,14 @@ used one, how often it was the trusted one.}
 \subsection{Labels shown to the model help some models much more than others}
 \label{sec:labels}
 
-With labels visible but unenforced, attack success fell to 0--4\% for Sonnet, Gemini, Luna and
-Haiku, to 15\% for GPT-6.1 Terra, and only to 69\% for Llama. The right half of
+With labels visible but unenforced, attack success fell to 0--1\% for Sonnet, Gemini, Luna and
+Haiku, to 15\% for GPT-6.1 Terra, and only to 67\% for Llama. The right half of
 Table~\ref{tab:behaviour} shows why. Faced with a request that acts and only untrusted memory to
-go on, Sonnet, Gemini and Haiku never used the memory (0 of 412 cases). Luna used it in 35 of
-167, Terra in 136 of 206, and Llama in 337 of 339.
+go on, Sonnet, Gemini and Haiku never used the memory (0 of 566 cases). Luna used it in 19 of
+196, Terra in 145 of 214, and Llama in 347 of 349.
 
 When a trusted and an untrusted entry were both in view, every model chose the trusted one, in
-all 378 cases. Failures to follow labels therefore arose where there was nothing
+all 990 cases. Failures to follow labels therefore arose where there was nothing
 trusted to prefer: the fill-gap case, and cases where merging had already destroyed the trusted
 entry (Section~\ref{sec:lifecycle}).
 
@@ -319,9 +325,9 @@ on the seven models they tested~\cite{authoritycollapse}. Our results reproduce 
 with the first and the hosted models with the second. The hosted models show that this is a
 property of the model rather than of labels: three of them treated a visible label as binding for
 requests that act. A deployment cannot know in advance which kind of model it has, and a model
-update can change it, so the case for enforcement stands. But for the three label-respecting models
-enforcement left utility unchanged relative to labels alone and moved attack success by at most
-two points.
+update can change it, so the case for enforcement stands. For the three label-respecting models
+enforcement moved attack success by about one point at most. What it changed for them was cost, and in
+their favour (Section~\ref{sec:cost}).
 
 \begin{table}[t]\centering\small
 \TableFatigue
@@ -342,38 +348,57 @@ user instead. Mean $\pm$ standard deviation over five seeds.}
 \end{table}
 
 Table~\ref{tab:cost} gives the cost. With no attacker, the share of requests completed correctly
-without involving the user fell by between 15 points (Haiku) and 43 points (Gemini) when the
-enforced defense was switched on. Three mechanisms account for it.
+without involving the user fell to 86\% for every model when the enforced defense was switched
+on: a drop of 14 points for the three models that had been at 100\%, and of 3 to 12 points for
+the three that already lost or asked about some details with no defense.
+
+That the six models land on the same figure is a property of the workload, and it is the main
+thing the workload shows. The 15 legitimate outside details are the only memories the defense
+treats differently, and under enforcement each one costs one exchange with the user, the
+first time a request that acts depends on it. After that exchange the value is held as the user's own
+statement, is kept apart from untrusted entries when memory is merged, and does not expire. The
+simulated user had to supply a detail 354 times under enforcement, across all models and
+seeds, and never one it had supplied before. Fifteen first uses in 105 requests is 14\%. The cost of this design therefore
+scales with the number of distinct outside facts an agent relies on and not with the number of
+requests. What differs between models is the form the exchange takes.
 
 \emph{The model asks.} Once Sonnet, Gemini and Haiku can see that a legitimate supplier detail is
-labelled untrusted, they decline to act on it and ask the user: on 22\%, 30\% and 21\% of
+labelled untrusted, they decline to act on it and ask the user: on 12\%, 13\% and 9\% of
 requests respectively. For these models the runtime's confirmation prompt never fired, because
 the model never proposed an untrusted value for a request that acts. This is the same pattern,
 at lower intensity, that Kwon saw when an explicit distrust instruction made a model escalate
 every request~\cite{manufacturedconfidence}.
 
 \emph{The runtime asks.} Llama never asked on its own, so the gate did the work, at about 10
-confirmation prompts per 100 requests; Terra produced 7 and Luna under 2. A confirmation is
-arguably cheaper for the user than an open question, since it shows the value and its source, and an
-approved value becomes trusted and is not asked about again.
+confirmation prompts per 100 requests; Terra produced 7 and Luna 1. A confirmation is
+arguably cheaper for the user than an open question, since it shows the value and its source.
+Counting a confirmed request as correct, Llama completes 96\% of requests under enforcement and
+Terra 92\%, against 100\% and 98\% undefended.
 
-\emph{Details expire.} Untrusted entries expire after 20 sessions, and a legitimate fact may be
-needed long after it arrived. Sonnet, Gemini and Llama lost no details with no defense and 13\%,
-13\% and 8\% with enforcement.
+\emph{The detail is gone.} Untrusted entries expire after 20 sessions, and a legitimate fact may
+be needed long after it arrived. Sonnet, Gemini and Llama found no detail missing with no defense
+and 2\%, 1\% and 4\% with enforcement. For Luna, Terra and Haiku the figure rose by 1 to 3
+points, to 7\%, 6\% and 5\%; part of that is detail these models never saved.
 
-Counting a confirmed request as correct, Llama completes 92\% of requests under enforcement and
-Terra 83\%, against 100\% and 93\% undefended. For the label-respecting models there is nothing
-comparable to add back, because in our harness a question to the user is not followed by an
-answer that the agent stores (Section~\ref{sec:limits}).
+\emph{Labels without enforcement cost the careful models more.} In the Labels condition the
+share completed unprompted was 75\% for Sonnet, 70\% for Gemini and 75\% for Haiku, against 86\%
+with enforcement. The difference is repeated questions. Without the rule that keeps trust levels
+apart, the user's answer is merged at the next consolidation with the untrusted entries on the
+same topic, takes their label and their expiry, and the model, seeing an untrusted entry again,
+asks again. Of the exchanges with the user in the Labels condition, 55 of 130 for Sonnet, 80 of
+155 for Gemini and 54 of 129 for Haiku concerned a detail the user had already supplied. Llama,
+which does not ask, completed more requests unprompted with labels alone (93\%) than with
+enforcement, because nothing stopped it using an untrusted value.
 
 \subsection{Lifecycle: merging, expiry and repair}
 \label{sec:lifecycle}
 
 \emph{Merging across trust levels damages the user's own instructions.} In the Labels condition a
 merge of the user's stated account with a planted note yields one entry labelled untrusted and
-due to expire. Under attack, the share of needed details lost was higher with Labels than with
-Enforced for every model, by 1 to 12 points (for example 23\% against 11\% for Sonnet, and 18\%
-against 7\% for Llama). It is also a likely source of the residual override success in the Labels
+due to expire. Under attack, the share of requests that found the needed detail missing was
+higher with Labels than with Enforced for every model, by 4 to 10 points (for example 12\%
+against 2\% for Sonnet, and 11\% against 3\% for Llama). The repeated questions of
+Section~\ref{sec:cost} are the same effect with no attacker present. It is also a likely source of the residual override success in the Labels
 column, since with the trusted entry gone there is nothing for the model to prefer; we did not
 trace each case. Keeping trust
 levels apart during consolidation removed the effect. Zhan et al.\ report the same failure in
@@ -383,12 +408,12 @@ task success to about 5\%~\cite{authoritycollapse}.
 \emph{Expiry is a blunt instrument.} It bounds how long a planted item can wait, and it removed
 legitimate outside facts at the rates given above. A confirmation that promotes a value to
 trusted is what keeps a useful outside fact alive; Llama, which reaches the confirmation prompt
-most often, lost fewer details under Enforced (8\%) than under Labels (13\%).
+most often, found fewer details missing under Enforced (4\%) than under Labels (7\%).
 
 \emph{Repair depends on lineage.} At the end of each run we retract every document that carried a
-planted item. With no defense, almost all the planted items that had been saved remained (the
-rest had already been overwritten by a later merge), because the agent's notes about them
-recorded no source to retract by. With labels, none remained for any
+planted item. With no defense, most of the planted items that had been saved remained (between
+67\% and 93\% of them, depending on the model; the rest had already been overwritten),
+because the agent's notes about them recorded no source to retract by. With labels, none remained for any
 model.
 
 \section{Limitations}
@@ -405,11 +430,13 @@ and each document statement carries a topic handle that stands in for retrieval.
 systems retrieve by similarity, which adds attack surface we do not model. Rates of asking,
 prompting and expiry will move with the task mix, the expiry length and the share of facts that
 arrive from outside.
-\item \textbf{Asking is not followed by learning.} When the model asks the user for a detail, the
-harness records the question and stores no answer, so the same detail can be asked about again.
-An approved confirmation, by contrast, is remembered. This overstates the long-run burden for
-models that ask relative to models that trigger confirmations, and should be corrected before
-the comparison between the two is relied on.
+\item \textbf{An ideal user.} When asked, the simulated user always supplies the right value
+at once, and the answer is stored as a user statement. A real user may not know the answer, may
+answer wrongly, or may read a planted value back from the same email. The finding that each
+outside fact costs one exchange depends on this, and on our workload, in which every outside
+fact is eventually needed and the facts do not change. An earlier version of the harness stored
+no answer when the model asked; all six models were rerun after that was corrected, and only
+the corrected runs are reported.
 \item \textbf{One run configuration per model.} Five seeds, one prompt wording, one expiry
 length. We report standard deviations and no significance tests. Replies are not guaranteed to be
 deterministic. Four models were reached through an aggregator and two through their vendor's API.
@@ -432,11 +459,14 @@ safer in general, and model behaviour changes between versions.
 
 On this workload, provenance labels shown to the model were a strong defense for models that
 respect them and a weak one for a model that does not, and enforcement by the runtime removed
-that dependence. The enforced defense blocked every simple planted item we tried, at the price
-of involving the user in 15 to 43 points more requests when nobody was attacking, through model
-questions, runtime confirmations and expired facts. Which of those a deployment pays depends on
-the model. The measurements that would most change this picture are adaptive attacks, a realistic
-benchmark such as MemoryDojo, and a harness in which the user's answers are learned.
+that dependence. The enforced defense blocked every simple planted item we tried. Its price when
+nobody was attacking was one exchange with the user for each legitimate outside fact the agent
+came to rely on, which on this workload meant 14\% of requests, whichever model was used. The
+model decides only whether that exchange is a question it asks or a confirmation the runtime
+raises. Labels without the rule that keeps trusted and untrusted memory apart cost the careful
+models 10 to 15 points more, because the user's answers did not stay trusted. The measurements
+that would most change this picture are adaptive attacks, a realistic benchmark such as
+MemoryDojo, and real users in place of the simulated one.
 
 \section*{Disclosure}
 

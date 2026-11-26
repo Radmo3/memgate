@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -79,6 +80,30 @@ def transcript_stats(path: Path) -> dict:
     return dict(c)
 
 
+def user_answers(folder: Path, settings: dict) -> dict:
+    """Replay the clean runs from the transcript and count how often the user had to supply
+    a detail, and how often it was one they had already supplied."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+    from memgate import presets
+    from memgate_eval import LLMAgent, generate, run
+    from memgate_eval.replay import Recorded
+
+    agent = LLMAgent(Recorded(folder / "transcript.jsonl"))
+    policies = presets(int(settings["ttl"]))
+    out = {}
+    for label, policy in (("labels", "taint"), ("enforced", "full")):
+        total = repeated = 0
+        for seed in range(int(settings["seeds"])):
+            scenario = generate(seed, n_sessions=int(settings["sessions"]), n_attacks=0)
+            result = run(scenario, policies[policy], agent=agent,
+                         fatigue=float(settings["fatigue"]), seed=seed)
+            total += result["user_answers"]
+            repeated += result["user_answers_repeated"]
+        out[f"user_answers_{label}"] = total
+        out[f"user_answers_repeated_{label}"] = repeated
+    return out
+
+
 def load() -> dict:
     out = {}
     for folder, name, vendor, sent, endpoint in MODELS:
@@ -91,6 +116,7 @@ def load() -> dict:
             "settings": summary["settings"],
             "attack": attack, "clean": clean, "fatigue": fatigue,
             "transcript": transcript_stats(RUNS / folder / "transcript.jsonl"),
+            "answers": user_answers(RUNS / folder, summary["settings"]),
         }
     return out
 
@@ -201,6 +227,12 @@ def numbers(data: dict) -> dict:
             "lost_enforced": round(100 * c["full"]["missing"]["mean"], 1),
             "prompts_per_100": round(c["full"]["prompts_per_100_tasks"]["mean"], 1),
             "wrong_none_under_attack": round(100 * a["none"]["wrong"]["mean"], 1),
+            "asked_labels": round(100 * c["taint"]["asked"]["mean"], 1),
+            "drop_unprompted_labels": round(100 * (c["none"]["ok_silent"]["mean"] - c["taint"]["ok_silent"]["mean"]), 1),
+            "lost_labels_under_attack": round(100 * a["taint"]["missing"]["mean"], 1),
+            "lost_enforced_under_attack": round(100 * a["full"]["missing"]["mean"], 1),
+            "residual_labels": round(100 * a["taint"]["residual_after_retraction"]["mean"], 1),
+            **d["answers"],
             "transcript": s,
         }
     cautious = ["claude-sonnet-5.5", "gemini-3.8-flash", "claude-haiku-5.5"]

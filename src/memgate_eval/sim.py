@@ -149,17 +149,23 @@ def run(
         "declined": rate(stats["declined"], dependent),
         "prompts_per_100_tasks": 100 * rate(stats["prompts"], stats["all_tasks"]),
         "initiated_actions_denied": stats["extra_denied"],
+        "user_answers": stats["answers"],
+        "user_answers_repeated": stats["answers_repeated"],
         "audit_ok": store.audit.verify(),
     }
 
 
-def _user_answers(store: MemoryStore, task: Task, t: int) -> None:
+def _user_answers(store: MemoryStore, task: Task, t: int, stats: Counter) -> None:
     """The user was consulted and gave the right detail, which is remembered.
 
     Without this, a detail the agent asked about once would be asked about on
     every later request, which overstates the burden of asking relative to a
     confirmation prompt (an approved confirmation is remembered).
     """
+    stats["answers"] += 1
+    stats[("answered", task.key)] += 1
+    if stats[("answered", task.key)] > 1:
+        stats["answers_repeated"] += 1
     store.write(
         key=task.key,
         value=task.true_value,
@@ -191,7 +197,7 @@ def _do_task(task, t, store, policy, agent, attacks_in, succeeded, stats, rng, f
             # the agent chose to ask the user anyway.
             known = any(_matches(e.value, task.true_value) for e in entries)
             stats["asked" if known else "missing"] += 1
-            _user_answers(store, task, t)
+            _user_answers(store, task, t, stats)
         return                         # no truth: asking the user is correct
 
     hit = attacks_in(chosen.value)
@@ -212,7 +218,7 @@ def _do_task(task, t, store, policy, agent, attacks_in, succeeded, stats, rng, f
             return
         if has_truth:
             stats["declined"] += 1
-            _user_answers(store, task, t)
+            _user_answers(store, task, t, stats)
         return
 
     if hit:

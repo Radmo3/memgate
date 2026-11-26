@@ -293,3 +293,18 @@ def test_a_detail_the_agent_asked_about_is_remembered():
     # that can only come from details the agent asked about once and then knew.
     assert result["ok_silent"] > 0.6
     assert 0 < result["asked"] < 0.4
+
+
+def test_under_enforcement_the_user_is_never_asked_twice_about_one_detail():
+    def trusts_only_the_user(system, user):
+        if system == REMEMBER_SYSTEM:
+            return gullible_model(system, user)
+        for line in user.splitlines():
+            found = re.match(r"\[(m\d+)\] The user said", line)
+            if found:
+                return json.dumps({"use_memory_id": found.group(1), "also_do": []})
+        return json.dumps({"use_memory_id": None, "also_do": []})
+
+    scenario = generate(5, **{**SMALL, "n_attacks": 0})
+    result = run(scenario, P["full"], agent=LLMAgent(trusts_only_the_user))
+    assert result["user_answers"] > 0 and result["user_answers_repeated"] == 0

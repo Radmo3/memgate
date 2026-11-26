@@ -24,3 +24,5 @@ jobs:
         run: |
           python -m memgate_eval.run --seeds 20 --out /tmp/results > /dev/null
           diff results/summary.md /tmp/results/summary.md
+      - name: Real-model reports can be recomputed from the saved replies
+        run: python -m memgate_eval.replay results/real-models/*/
